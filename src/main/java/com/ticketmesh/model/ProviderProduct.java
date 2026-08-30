@@ -65,6 +65,15 @@ public class ProviderProduct {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
+    @Column(precision = 12, scale = 2)
+    private BigDecimal basePrice;
+
+    @Column(precision = 8, scale = 4)
+    private BigDecimal taxRate;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal serviceFee;
+
     @NotNull
     @Size(min = 3, max = 3)
     @Column(nullable = false, length = 3)
@@ -168,6 +177,30 @@ public class ProviderProduct {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public BigDecimal getBasePrice() {
+        return basePrice;
+    }
+
+    public void setBasePrice(BigDecimal basePrice) {
+        this.basePrice = basePrice;
+    }
+
+    public BigDecimal getTaxRate() {
+        return taxRate;
+    }
+
+    public void setTaxRate(BigDecimal taxRate) {
+        this.taxRate = taxRate;
+    }
+
+    public BigDecimal getServiceFee() {
+        return serviceFee;
+    }
+
+    public void setServiceFee(BigDecimal serviceFee) {
+        this.serviceFee = serviceFee;
     }
 
     public String getCurrencyIso() {

@@ -47,3 +47,41 @@
 ### Up next (development)
 - React consumer PWA + admin portal wiring to these APIs.
 - Full deployment/autoscaling infrastructure and production API documentation finalization.
+
+## v1.1.0 — Development Release (2026-08-30)
+
+### Highlights
+- Marketplace commerce: promotions, loyalty points/tiers, reviews, notifications, multi-leg
+  trips and live pricing.
+- Globalization: per-locale translation dictionaries and multi-currency FX rates.
+- ML / analytics: deterministic ML-style suite (demand forecast, price prediction,
+  recommendations, trend report, anomaly scoring) plus a natural-language data analyst.
+
+### New features
+- **Promotions** — create/enable/disable promo codes (discount type, value, min purchase,
+  validity window, max uses, domain scoping) via `/api/promotions`; applied in pricing.
+- **Loyalty** — `LoyaltyAccount` with points and tier via `/api/loyalty`.
+- **Reviews** — create + list + average rating per product via `/api/reviews`.
+- **Notifications** — current-user notification feed via `/api/notifications`.
+- **Trips** — multi-ticket/multi-service trip builder (create trip, add legs) via `/api/trips`.
+- **Pricing** — final price with promo code + currency conversion via `/api/pricing/{productId}`.
+- **Globalization** — translation dictionary + FX rates + currencies + languages via
+  `/api/globalization` (multi-currency / multi-language SaaS).
+- **ML / analytics** — `com.ticketmesh.ml.MlSuiteService` (demandForecast,
+  cancellationProbability, recommend, predictPrice, anomalyScore, trendReport) and
+  `AiDataAnalystService` (NL question answering), exposed via `/api/analytics`.
+- **Disruption & audit** — `DisruptionService` -> `DisruptionReport` (active disruptions,
+  findings, recovery recommendations) via `/api/ops`, plus outbox event feed and audit log
+  via `/api/ops/events` and `/api/audit`.
+
+### Testing
+- Expanded test suite from **62 to 77** passing tests (unit + integration + WireMock
+  contract).
+- New coverage: analytics/ML, promotions, loyalty, reviews, notifications, trips,
+  globalization and pricing.
+
+### Known limitations
+- ML outputs are deterministic heuristics over booking/order history (no trained model);
+  suitable as explainable baselines for dynamic pricing and demand intelligence.
+- Payment uses an abstraction over a stubbed/offline provider (WireMock) — production
+  gateway wiring is configured by deployment.

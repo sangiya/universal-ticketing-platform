@@ -40,3 +40,51 @@
 ### Regression risk
 - Low; the release adds domains (support, fraud, ops) without changing existing booking,
   payment, ticket, AI or marketplace behaviour. All prior tests remain green.
+
+## v1.1.0 — QA Release (2026-08-30)
+
+### Test summary
+- **Total automated tests:** 77
+- **Failed:** 0
+- **Pass rate:** 100%
+
+### What was added since v1.0.0
+- Marketplace commerce: promotions, loyalty, reviews, notifications, multi-leg trips, live
+  pricing.
+- Globalization: translation dictionaries + multi-currency FX rates (multi-language /
+  multi-currency SaaS).
+- ML / analytics: `MlSuiteService` (forecast, price, recommend, anomaly, trend) +
+  `AiDataAnalystService` NL data analyst, exposed via `/api/analytics`.
+- Ops intelligence: `DisruptionService` -> `DisruptionReport`, outbox event feed and audit.
+
+### Coverage by area (added in v1.1.0)
+| Area | Notes |
+|------|-------|
+| Analytics / ML | demand forecast, price projection, recommend, trend, anomaly, NL analyst |
+| Promotions | create, list, toggle, apply in pricing |
+| Loyalty | points / tier account |
+| Reviews | create, list, average rating |
+| Notifications | current-user feed |
+| Trips | create trip, add legs, list |
+| Globalization | translate, dictionary, rates, currencies, languages |
+| Pricing | promo + currency final price |
+| Ops / audit | events feed, disruption report, audit log |
+
+### Test types executed
+- **Unit tests** — service-level, real assertions, mocked boundaries.
+- **Integration tests** — H2 MySQL-mode + MockMvc, full request/response flows.
+- **Contract tests** — WireMock standalone for external provider API (works offline).
+
+### Known issues / notes
+- ML outputs are deterministic heuristics over history (explainable baselines); no trained
+  model dependency.
+- External provider and payment endpoints are stubbed with WireMock for offline dev; the
+  real adapters are wired at deployment time via configuration.
+
+### Go / no-go
+- **Result:** GO for production deployment baseline with documented provider/payment wiring.
+
+### Regression risk
+- Low; v1.1.0 adds commerce, globalization and ML/analytics domains without changing
+  existing booking, payment, ticket, support, fraud, AI or marketplace behaviour. All prior
+  tests remain green (62 -> 77 total).

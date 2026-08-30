@@ -31,6 +31,15 @@ an admin portal and an agent/shop app channel.
   admin override.
 - **AI assistant + RAG + guardrails** — conversational help with retrieval and safety
   guardrails.
+- **ML / analytics + NL data analyst** — demand forecast, price prediction,
+  recommendations, trend report, anomaly scoring, plus a natural-language data analyst
+  (`/api/analytics`).
+- **Marketplace commerce** — promotions, loyalty points/tiers, product reviews,
+  notifications and multi-leg trips.
+- **Globalization** — multi-currency (ISO 4217) FX rates and multi-language (BCP-47)
+  translation dictionaries via `/api/globalization`.
+- **Disruption intelligence** — active-disruption reports with findings and recovery
+  recommendations (`/api/ops/disruption`), plus an outbox event feed and audit log.
 - **Automation** — health checks, auto issue detection and scripted auto-fix, observability
   (Actuator/Micrometer/Prometheus).
 - **Offline-friendly** — H2 in MySQL mode for tests; WireMock stubs for provider/API calls.
@@ -91,6 +100,10 @@ in production). Always change defaults in production.
 | Booking | `POST /api/tickets/`, `POST /api/tickets/{id}/cancel`, `POST /api/tickets/verify` | |
 | Support | `/api/support/tickets...` | 24/7 portal (+ admin paths) |
 | Fraud | `/api/security/fraud/check`, `.../signals`, `.../high-count` | Admin |
+| Analytics/ML | `/api/analytics/forecast`, `.../price`, `.../recommend`, `.../trend`, `.../anomaly`, `.../ask` | Auth |
+| Commerce | `/api/promotions`, `/api/loyalty`, `/api/reviews`, `/api/notifications`, `/api/trips`, `/api/pricing/{productId}` | Auth |
+| Globalization | `/api/globalization/translate`, `.../dictionary`, `.../rates`, `.../currencies`, `.../languages` | Auth |
+| Ops | `/api/ops/events`, `/api/ops/disruption`, `/api/audit` | Admin |
 | Health | `GET /api/health/live`, `GET /actuator/health` | public |
 
 See **`docs/api-production.md`** and **`docs/api-test.md`** for the complete test and
@@ -129,7 +142,7 @@ Regenerate the scope `.docx`/`.pdf` with: `python tools/generate_docs.py`.
 ## Testing
 
 ```bash
-mvn test          # 62 tests across backend + WireMock contract + full flow
+mvn test          # 77 tests across backend + WireMock contract + full flow
 cd frontend && npm run build   # type-checks + produces the PWA
 ```
 
@@ -146,6 +159,7 @@ cd frontend && npm run build   # type-checks + produces the PWA
 | Migrations | Flyway |
 | Database | MySQL 8 (runtime), H2 (tests, MySQL mode) |
 | AI | Spring AI-like assistant via HttpClient adapters + RAG + guardrails |
+| ML/Analytics | Deterministic ML-style suite (forecast, price, recommend, anomaly, trend) + NL data analyst |
 | Frontend | React 18 + TypeScript + Vite + PWA |
 | Testing | JUnit 5, Mockito, WireMock 3.13.2 |
 | Infra | Docker, docker-compose, Kubernetes/Helm/HPA, Terraform/ECS |

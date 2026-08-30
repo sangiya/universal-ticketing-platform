@@ -18,8 +18,10 @@ the authenticated tenant of the token.
 - **Authentication**: obtain a JWT via `POST /api/auth/login` (customer, agent or admin).
 - **Authorization**: roles `CUSTOMER`, `AGENT`, `ADMIN` at method level.
   - `/api/support/tickets`, `/api/tickets`, `/api/catalog` — customers/agents (authenticated).
-  - `/api/support/admin/**` — `ADMIN` or `AGENT`.
-  - `/api/security/**`, `/api/admin/**` — `ADMIN`.
+  - `/api/analytics/**`, `/api/pricing/**`, `/api/promotions`, `/api/loyalty`, `/api/reviews`,
+    `/api/notifications`, `/api/trips`, `/api/globalization/**` — authenticated.
+  - `/api/ops/**`, `/api/audit`, `/api/admin/**` — `ADMIN` or `AGENT`.
+  - `/api/security/**` — `ADMIN`.
 - **Public (no auth)**: `POST /api/auth/register`, `POST /api/auth/login`,
   `GET /api/tenant/{slug}/branding`, `GET /api/catalog/**`, `GET /api/tickets/verify`,
   `GET /api/health/**`, `GET /actuator/health/**`.
@@ -79,7 +81,52 @@ All errors return a JSON object with a message and an HTTP status:
 | GET | `/security/fraud/signals?tenantId=` | ADMIN | Recent signals. |
 | GET | `/security/fraud/high-count` | ADMIN | High-risk signal count. |
 
-### Ops / health
+### Analytics / ML (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/analytics/forecast/{productId}?horizonDays=` | auth | Demand forecast: daily projections, seasonal factor, confidence. |
+| GET | `/analytics/recommend?limit=` | auth | Personalized recommendations (history + popularity). |
+| GET | `/analytics/price/{productId}?horizonDays=` | auth | Price projection + surge rate. |
+| GET | `/analytics/trend?tenantId=` | auth | Trend report: orders + revenue by domain. |
+| GET | `/analytics/anomaly?amount=` | auth | Anomaly score (0-100) + risk level for an amount. |
+| POST | `/analytics/ask` | auth | NL data-analyst answer: `{"question":"..."}` -> `{"answer":"..."}`. |
+
+### Globalization / i18n (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/globalization/translate?tenantId=&locale=&key=` | auth | Look up a translation key. |
+| GET | `/globalization/dictionary?tenantId=&locale=` | auth | Full dictionary (key -> value). |
+| POST | `/globalization/messages` | auth | Upsert message `{tenantId,locale,key,value}`. |
+| POST | `/globalization/rates` | auth | Upsert FX rate `{tenantId,base,target,rate}`. |
+| GET | `/globalization/rates?tenantId=` | auth | Currency conversion rates. |
+| GET | `/globalization/currencies?tenantId=` | auth | Supported ISO 4217 currencies. |
+| GET | `/globalization/languages?tenantId=` | auth | Supported BCP-47 languages. |
+
+### Commerce (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/promotions` | auth | Create promotion (code, discount type/value, min purchase, validity, max uses, domains). |
+| GET | `/promotions?tenantId=` | auth | List promotions. |
+| POST | `/promotions/{id}/toggle` | auth | Enable/disable promotion `{enabled}`. |
+| GET | `/loyalty` | auth | Current user loyalty account (points, tier). |
+| POST | `/reviews` | auth | Create review `{productId,rating,title,comment}`. |
+| GET | `/reviews/product/{productId}` | auth | Product reviews. |
+| GET | `/reviews/product/{productId}/average` | auth | Average rating. |
+| GET | `/notifications` | auth | Current user notifications. |
+| POST | `/trips` | auth | Create multi-leg trip `{title}`. |
+| POST | `/trips/{tripId}/legs` | auth | Add a leg `{bookingId,note}`. |
+| GET | `/trips` | auth | My trips. |
+| GET | `/trips/{tripId}/legs` | auth | Legs of a trip. |
+| GET | `/pricing/{productId}?promoCode=&currency=` | auth | Final price after promo + currency conversion. |
+
+### Ops & audit (ADMIN / auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/ops/events?limit=` | ADMIN | Domain/outbox event feed. |
+| GET | `/ops/disruption?tenantId=` | ADMIN | Disruption report: active disruptions, findings, recovery recommendations. |
+| GET | `/audit?tenantId=&limit=` | ADMIN | Audit log entries. |
+
+### Health / ops surface
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health/live` | public | Liveness. |

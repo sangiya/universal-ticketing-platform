@@ -60,6 +60,51 @@ https://test-api.ticketmesh.example/api
 | GET | `/health/live` | Liveness probe. |
 | GET | `/actuator/health` | Readiness/component health. |
 
+## Analytics / ML (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/analytics/forecast/{productId}?horizonDays=7` | Demand forecast (daily projections + confidence). |
+| GET | `/analytics/recommend?limit=5` | Personalized product recommendations. |
+| GET | `/analytics/price/{productId}?horizonDays=7` | Price projection / surge prediction. |
+| GET | `/analytics/trend?tenantId=` | Trend report (orders/revenue by domain). |
+| GET | `/analytics/anomaly?amount=1234.56` | Anomaly score + risk level for an amount. |
+| POST | `/analytics/ask` | Natural-language question -> data analyst answer (`{"question":"..."}`). |
+
+## Globalization / i18n (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/globalization/translate?tenantId=&locale=&key=` | Translate a key for tenant/locale. |
+| GET | `/globalization/dictionary?tenantId=&locale=` | Full translation dictionary. |
+| POST | `/globalization/messages` | Upsert message `{tenantId,locale,key,value}`. |
+| POST | `/globalization/rates` | Upsert currency rate `{tenantId,base,target,rate}`. |
+| GET | `/globalization/rates?tenantId=` | Currency conversion rates. |
+| GET | `/globalization/currencies?tenantId=` | Supported currencies. |
+| GET | `/globalization/languages?tenantId=` | Supported languages. |
+
+## Commerce (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/promotions` | Create promotion `{tenantId,code,name,discountType,discountValue,minPurchase,startsAt,endsAt,maxUses,domains}`. |
+| GET | `/promotions?tenantId=` | List promotions. |
+| POST | `/promotions/{id}/toggle` | Enable/disable `{enabled}`. |
+| GET | `/loyalty` | Current user loyalty account (points/tier). |
+| POST | `/reviews` | Create review `{productId,rating,title,comment}`. |
+| GET | `/reviews/product/{productId}` | Product reviews. |
+| GET | `/reviews/product/{productId}/average` | Average rating. |
+| GET | `/notifications` | Current user notifications. |
+| POST | `/trips` | Create trip `{title}`. |
+| POST | `/trips/{tripId}/legs` | Add leg `{bookingId,note}`. |
+| GET | `/trips` | My trips. |
+| GET | `/trips/{tripId}/legs` | Legs of a trip. |
+| GET | `/pricing/{productId}?promoCode=&currency=` | Final price with promo + currency conversion. |
+
+## Ops (ADMIN) / audit (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/ops/events?limit=10` | Domain/outbox event feed. |
+| GET | `/ops/disruption?tenantId=` | Disruption report (active disruptions, findings, recovery recommendations). |
+| GET | `/audit?tenantId=&limit=` | Audit log entries. |
+
 ## Example: open a support ticket
 
 ```
@@ -90,3 +135,5 @@ Response `200`: `{"score":0,"risk":"LOW","flags":[],"blocked":false}`.
 - External provider/payment endpoints are stubbed with **WireMock** in the test env, so you
   can run full flows offline with deterministic responses.
 - Tests use H2 in MySQL mode with Flyway migrations.
+- 77 automated tests pass across booking, payment, ticket, support, fraud, AI, ML/analytics,
+  promotions, loyalty, reviews, notifications, trips, globalization, pricing, ops and full-flow.

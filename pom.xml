@@ -15,7 +15,7 @@
     <artifactId>ticketmesh-core</artifactId>
     <version>1.0.0</version>
     <name>ticketmesh-core</name>
-    <description>QR ticket and payment service for point-to-point train travel</description>
+    <description>TicketMesh: a universal ticketing and reservation SaaS platform with multi-provider marketplace, white-label multi-tenant theming, global multi-currency/multi-language support, customer/agent/admin roles, web + PWA channels, and cloud/on-prem deployment with autoscaling.</description>
 
     <properties>
         <java.version>21</java.version>

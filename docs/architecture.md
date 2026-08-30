@@ -10,8 +10,8 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
 **Key architectural decisions**
 
 - One modular backend exposing clear domain boundaries (identity, catalog, marketplace,
-  booking, payment, inventory, support, fraud, ops) — easy to split into microservices
-  later without a rewrite.
+  booking, payment, inventory, support, fraud, ops, **analytics, globalization, commerce**) —
+  easy to split into microservices later without a rewrite.
 - Multi-tenant model: every tenant carries country (ISO 3166-1 alpha-2), currency
   (ISO 4217), default language (BCP-47) and timezone.
 - Marketplace model (Uber/PickMe-style): agents/shops connect via app, upload their own
@@ -34,6 +34,17 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
   - Booking / Reservation / Payment / Inventory
   - Support (tickets, 24/7 portal, SLA, escalation)
   - Fraud / Risk detection + ops signals
+  - **ML / analytics** (`com.ticketmesh.ml`) — demand forecast, price prediction,
+    recommendations, trend report, anomaly scoring, and an NL data analyst
+    (`AnalyticsController` under `/api/analytics`)
+  - **Event / outbox engine** — every important business action emits an event via the
+    outbox table (`EventService`, polled/published), feeding the ops event feed
+  - **Promotions / loyalty / globalization** — promo engine + `/api/promotions`, loyalty
+    points/tiers + `/api/loyalty`, and multi-currency / multi-language globalization
+    (translate, dictionary, FX rates) + `/api/globalization`
+  - **Commerce controller groups** — reviews, notifications, trips, live pricing
+    (`/api/reviews`, `/api/notifications`, `/api/trips`, `/api/pricing`), plus ops/disruption
+    intelligence and audit (`/api/ops`, `/api/audit`)
   - AI assistant + RAG + guardrails
   - Actuator health/readiness/metrics
 - **Datastores** — MySQL/PostgreSQL (primary), Flyway migrations, H2 (test, MySQL mode).

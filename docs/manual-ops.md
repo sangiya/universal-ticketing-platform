@@ -64,3 +64,21 @@ Anything not safely auto-fixable escalates to the runbook + support portal.
 
 Record every incident: time, detection channel (auto/monitor), impact, root cause,
 auto-fix vs manual action, resolution, and follow-up prevention item.
+
+## 9. Ops & audit endpoints
+
+Authenticated operations/admin endpoints for live monitoring and investigation:
+
+- **Event feed**: `GET /api/ops/events?limit=10` — recent domain/outbox events
+  (booking placed, payment completed, promotion redeemed, disruption raised, ...).
+  Use it to trace business activity without querying the DB directly.
+- **Disruption report**: `GET /api/ops/disruption?tenantId=` — returns a
+  `DisruptionReport` with `activeDisruptions`, `findings` and `recoveryRecommendations`.
+  Check this during incidents to get the platform's own assessment and suggested recovery
+  actions.
+- **Audit log**: `GET /api/audit?tenantId=&limit=` — recent audit-log entries per tenant.
+  Review after any incident or suspected unauthorized action.
+
+Pair these with the health/metrics surface (§1-2) for a complete operational picture:
+health tells you the app is up; `/ops/events` + `/ops/disruption` + `/audit` tell you what
+is actually happening and how to recover.

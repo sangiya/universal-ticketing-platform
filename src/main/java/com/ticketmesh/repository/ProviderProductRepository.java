@@ -5,8 +5,11 @@ import com.ticketmesh.model.ProviderProduct.ProductType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProviderProductRepository extends JpaRepository<ProviderProduct, Long> {
+
+    Optional<ProviderProduct> findByIdAndTenant_Id(Long id, Long tenantId);
 
     List<ProviderProduct> findByProvider_Id(Long providerId);
 

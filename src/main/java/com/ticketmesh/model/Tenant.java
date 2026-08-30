@@ -54,6 +54,22 @@ public class Tenant {
     @Column(nullable = false, length = 64)
     private String timezone;
 
+    @Size(max = 10)
+    @Column(length = 10)
+    private String locale;
+
+    @Size(max = 120)
+    @Column(name = "country_name", length = 120)
+    private String countryName;
+
+    @Size(max = 500)
+    @Column(name = "supported_currencies", length = 500)
+    private String supportedCurrencies;
+
+    @Size(max = 500)
+    @Column(name = "supported_languages", length = 500)
+    private String supportedLanguages;
+
     @Size(max = 160)
     @Column(length = 160)
     private String domain;
@@ -141,6 +157,38 @@ public class Tenant {
 
     public void setDomain(String domain) {
         this.domain = domain;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
+    }
+
+    public String getCountryName() {
+        return countryName;
+    }
+
+    public void setCountryName(String countryName) {
+        this.countryName = countryName;
+    }
+
+    public String getSupportedCurrencies() {
+        return supportedCurrencies;
+    }
+
+    public void setSupportedCurrencies(String supportedCurrencies) {
+        this.supportedCurrencies = supportedCurrencies;
+    }
+
+    public String getSupportedLanguages() {
+        return supportedLanguages;
+    }
+
+    public void setSupportedLanguages(String supportedLanguages) {
+        this.supportedLanguages = supportedLanguages;
     }
 
     public boolean isEnabled() {
