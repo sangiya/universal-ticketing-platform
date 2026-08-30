@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ticketmesh.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "ticketmesh.name" . }}
+data:
+  DB_URL: {{ .Values.env.DB_URL | quote }}
+  DB_USERNAME: {{ .Values.env.DB_USERNAME | quote }}
+  BOOTSTRAP_ADMIN_USERNAME: {{ .Values.env.BOOTSTRAP_ADMIN_USERNAME | quote }}
+  SUPPORT_SLA_CHECK_MS: {{ .Values.env.SUPPORT_SLA_CHECK_MS | quote }}

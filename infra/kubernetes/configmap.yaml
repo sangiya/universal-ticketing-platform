@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticketmesh-config
+data:
+  DB_URL: "jdbc:mysql://ticketmesh-mysql:3306/ticketmesh_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+  DB_USERNAME: "ticketmesh_app"
+  BOOTSTRAP_ADMIN_USERNAME: "admin"
+  SUPPORT_SLA_CHECK_MS: "60000"
+  PROVIDER_CONNECT_TIMEOUT_MS: "2000"
+  PROVIDER_READ_TIMEOUT_MS: "3000"

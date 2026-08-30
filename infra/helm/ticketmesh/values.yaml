@@ -1,0 +1,40 @@
+replicaCount: 2
+
+image:
+  repository: sangiya/ticketmesh-core
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+probes:
+  readinessPath: /actuator/health
+  livenessPath: /api/health/live
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 75
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+env:
+  DB_URL: "jdbc:mysql://ticketmesh-mysql:3306/ticketmesh_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+  DB_USERNAME: "ticketmesh_app"
+  BOOTSTRAP_ADMIN_USERNAME: "admin"
+  SUPPORT_SLA_CHECK_MS: "60000"
+
+secrets:
+  dbPassword: "change-me"
+  jwtSecret: "change-me"
+  qrSecret: "change-me"

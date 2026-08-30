@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ticketmesh-core
+  profiles:
+    default: ai-offline
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ticketmesh_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:ticketmesh_app}
+    password: ${DB_PASSWORD:ticketmesh_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-super-secret-key-please-2026-ticketmesh}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  qr:
+    secret: ${QR_SECRET:change-this-qr-signing-secret-please-2026}
+  reservation:
+    pending-timeout-ms: ${RESERVATION_PENDING_TIMEOUT_MS:900000}
+    hold-timeout-ms: ${RESERVATION_HOLD_TIMEOUT_MS:1800000}
+    scheduler-interval-ms: ${RESERVATION_SCHEDULER_INTERVAL_MS:60000}
+  bootstrap:
+    admin-username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
+    admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:ChangeMe123!}
+  support:
+    sla-check-ms: ${SUPPORT_SLA_CHECK_MS:60000}
+  provider:
+    connect-timeout-ms: ${PROVIDER_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${PROVIDER_READ_TIMEOUT_MS:3000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    org.springframework.security: INFO
