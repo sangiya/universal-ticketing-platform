@@ -21,6 +21,7 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -142,5 +143,55 @@ class PaymentServiceTest {
 
         assertEquals(Payment.Status.REFUNDED, pendingPayment.getStatus());
         verify(paymentRepository).save(pendingPayment);
+    }
+
+    @Test
+    void initiate_acceptsPaypalWithoutCardFields() {
+        PaymentRequest req = new PaymentRequest();
+        req.setAmount(new BigDecimal("1200.00"));
+        req.setMethod("PAYPAL");
+
+        PaymentResponse response = paymentService.initiate(booking.getId(), req);
+
+        assertEquals("PENDING", response.status());
+        assertEquals("PAYPAL", response.method());
+        assertNull(response.cardLast4());
+        verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    void initiate_acceptsWalletCaseInsensitively() {
+        PaymentRequest req = new PaymentRequest();
+        req.setAmount(new BigDecimal("1200.00"));
+        req.setMethod("wallet");
+
+        PaymentResponse response = paymentService.initiate(booking.getId(), req);
+
+        assertEquals("PENDING", response.status());
+        assertEquals("WALLET", response.method());
+        verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    void initiate_acceptsBankViaFallbackGateway() {
+        PaymentRequest req = new PaymentRequest();
+        req.setAmount(new BigDecimal("1200.00"));
+        req.setMethod("BANK");
+
+        PaymentResponse response = paymentService.initiate(booking.getId(), req);
+
+        assertEquals("PENDING", response.status());
+        assertEquals("BANK", response.method());
+        verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    void initiate_stillRequiresCardFieldsForCardMethod() {
+        PaymentRequest req = new PaymentRequest();
+        req.setAmount(new BigDecimal("1200.00"));
+        req.setMethod("CARD");
+
+        assertThrows(InvalidPaymentException.class,
+                () -> paymentService.initiate(booking.getId(), req));
     }
 }

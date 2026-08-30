@@ -29,13 +29,21 @@ public class PromotionService {
     public Promotion create(Long tenantId, String code, String name, DiscountType type,
                             BigDecimal value, BigDecimal minPurchase, Instant startsAt,
                             Instant endsAt, Integer maxUses, String domains) {
+        return create(tenantId, code, name, type, value, minPurchase, startsAt, endsAt,
+                maxUses, domains, Promotion.Kind.PROMO);
+    }
+
+    @Transactional
+    public Promotion create(Long tenantId, String code, String name, DiscountType type,
+                            BigDecimal value, BigDecimal minPurchase, Instant startsAt,
+                            Instant endsAt, Integer maxUses, String domains, Promotion.Kind kind) {
         if (promotionRepository.findByTenantIdAndCode(tenantId, code.trim().toUpperCase())
                 .isPresent()) {
             throw new ConflictException("Promotion code already exists: " + code);
         }
         return promotionRepository.save(new Promotion(
                 tenantId, code.trim().toUpperCase(), name, type, value, minPurchase,
-                startsAt, endsAt, maxUses, domains));
+                startsAt, endsAt, maxUses, domains, kind));
     }
 
     @Transactional(readOnly = true)

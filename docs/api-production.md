@@ -21,9 +21,11 @@ the authenticated tenant of the token.
   - `/api/analytics/**`, `/api/pricing/**`, `/api/promotions`, `/api/loyalty`, `/api/reviews`,
     `/api/notifications`, `/api/trips`, `/api/globalization/**` — authenticated.
   - `/api/ops/**`, `/api/audit`, `/api/admin/**` — `ADMIN` or `AGENT`.
-  - `/api/security/**` — `ADMIN`.
+  - `/api/security/fraud/**`, `/api/admin/**` — `ADMIN`.
+  - `/api/security/profile/**`, `/api/security/pii/**` (2FA, app-keys, masked PII) — authenticated.
 - **Public (no auth)**: `POST /api/auth/register`, `POST /api/auth/login`,
   `GET /api/tenant/{slug}/branding`, `GET /api/catalog/**`, `GET /api/tickets/verify`,
+  `GET /api/referrals/validate`, `POST /api/messaging/webhook/tenant/{tenantId}/channel/{channel}`,
   `GET /api/health/**`, `GET /actuator/health/**`.
 - **Rate limiting**, encryption in transit (TLS), tenant isolation and audit logging apply
   in production. Do **not** use the test bootstrap admin credentials in production.
@@ -81,6 +83,58 @@ All errors return a JSON object with a message and an HTTP status:
 | GET | `/security/fraud/signals?tenantId=` | ADMIN | Recent signals. |
 | GET | `/security/fraud/high-count` | ADMIN | High-risk signal count. |
 
+### 2FA / security profile (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/security/profile/2fa/otp/send` | auth | Send an email/SMS OTP `{email,purpose}` (REGISTRATION or LOGIN_2FA). |
+| POST | `/security/profile/2fa/otp/verify` | auth | Verify an OTP `{email,code}`. |
+| POST | `/security/profile/2fa/totp/enable` | auth | Enable RFC 6238 TOTP; returns a Base32 secret `{username}`. |
+| POST | `/security/profile/2fa/totp/verify` | auth | Verify a TOTP code `{username,code}` (30s window). |
+| POST | `/security/profile/appkey/issue` | auth | Issue an API app-key `{username}`; the key is shown once. |
+| POST | `/security/profile/appkey/verify` | auth | Verify an app-key `{username,key}`. |
+
+### Identity verification (auth / ADMIN)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/identity/verify` | auth | Submit identity document `{documentType, documentNumber, documentPhotoUrl}` (NIC / passport / driving licence). |
+| GET | `/identity/me` | auth | My verification status. |
+| POST | `/admin/identity/{id}/review?approve=` | ADMIN | Approve or reject an identity submission. |
+
+### PII (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/security/pii/me` | auth | Masked view of my PII; raw document numbers / email / phone are never returned. |
+
+### Social (auth; public referral validate)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/family` | auth | Create a family group `{name}`. |
+| POST | `/family/{familyId}/join` | auth | Join a family group. |
+| DELETE | `/family/{familyId}/members/{userId}` | auth | Remove a member (group owner). |
+| GET | `/family` | auth | My family groups. |
+| GET | `/family/{familyId}/members` | auth | Members of a group. |
+| GET | `/settings` | auth | My preferences (theme/language/currency/notification prefs). |
+| PUT | `/settings` | auth | Update preferences. |
+| POST | `/referrals` | auth | Generate my referral code. |
+| POST | `/referrals/invite` | auth | Invite a friend by email. |
+| GET | `/referrals` | auth | My referral codes / status. |
+| GET | `/referrals/validate?code=` | public | Validate a referral code. |
+
+### Messaging / omnichannel (auth; webhook public)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/messaging/webhook/tenant/{tenantId}/channel/{channel}` | public | Inbound webhook (WhatsApp / Facebook / Telegram / SMS) for a tenant. |
+| POST | `/messaging/send` | auth | Send an outbound message `{channel,recipientRef,body}`. |
+| GET | `/messaging` | auth | Conversation log for my tenant. |
+| POST | `/messaging/channels/{tenantId}` | ADMIN | Configure a channel integration for a tenant. |
+
+### Payments (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/payments/booking/{bookingId}` | auth | Initiate a payment; method `CARD` / `WALLET` / `PAYPAL` / `BANK`. |
+| POST | `/payments/{paymentId}/settle` | auth | Settle / confirm a payment. |
+| GET | `/payments/booking/{bookingId}/status` | auth | Check payment status. |
+
 ### Analytics / ML (auth)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -105,7 +159,7 @@ All errors return a JSON object with a message and an HTTP status:
 ### Commerce (auth)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/promotions` | auth | Create promotion (code, discount type/value, min purchase, validity, max uses, domains). |
+| POST | `/promotions` | auth | Create promotion (code, discount type/value, min purchase, validity, max uses, domains, kind). Discount types: `PERCENT / FLAT / VOUCHER / OFFER`. |
 | GET | `/promotions?tenantId=` | auth | List promotions. |
 | POST | `/promotions/{id}/toggle` | auth | Enable/disable promotion `{enabled}`. |
 | GET | `/loyalty` | auth | Current user loyalty account (points, tier). |
@@ -121,6 +175,27 @@ All errors return a JSON object with a message and an HTTP status:
 | POST | `/orders` | auth | Place a universal marketplace order `{tenantId,productId,quantity,promoCode?}`. |
 | GET | `/orders/mine` | auth | Current user's orders. |
 | GET | `/orders?tenantId=` | auth | Orders for the caller's tenant (tenant-scoped). |
+
+### Tenant & moderation (ADMIN)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/admin/tenants` | ADMIN | Create a tenant. |
+| GET | `/admin/tenants` | ADMIN | List tenants. |
+| GET | `/admin/tenants/{slug}` | ADMIN | Get a tenant. |
+| PUT | `/admin/tenants/{slug}` | ADMIN | Update tenant configuration. |
+| PUT | `/admin/tenants/{slug}/status?enabled=` | ADMIN | Enable / disable a tenant. |
+| PUT | `/admin/tenants/{slug}/moderation?mode=` | ADMIN | Set moderation mode `INSTANT` (auto-activate) or `REVIEW` (admin approval). |
+| PUT | `/admin/tenants/{slug}/branding` | ADMIN | Upsert white-label branding. |
+| GET | `/tenant/{slug}/branding` | public | Public branding lookup. |
+
+### Admin (ADMIN)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/admin/dashboard` | ADMIN | Platform dashboard. |
+| GET | `/admin/shops?status=` | ADMIN | Shop applications by status. |
+| PUT | `/admin/shops/{id}?action=` | ADMIN | Approve / suspend a shop. |
+| GET | `/admin/providers` | ADMIN | Providers. |
+| POST | `/admin/identity/{id}/review` | ADMIN | Review an identity verification. |
 
 ### Ops & audit (ADMIN / auth)
 | Method | Path | Auth | Description |

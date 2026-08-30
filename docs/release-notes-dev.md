@@ -88,3 +88,58 @@
   suitable as explainable baselines for dynamic pricing and demand intelligence.
 - Payment uses an abstraction over a stubbed/offline provider (WireMock) — production
   gateway wiring is configured by deployment.
+
+## v1.2.0 — Development Release (2026-08-31)
+
+### Highlights
+- **Open, instant-activation marketplace** with configurable **moderation mode**
+  (`INSTANT` / `REVIEW`) per tenant (`PUT /api/admin/tenants/{slug}/moderation?mode=`).
+- **Strong onboarding security**: 2FA (OTP / TOTP / app-keys), identity verification with
+  admin review, and **AES-256/GCM PII encryption** with a masked-PII view.
+- **Omnichannel messaging**: WhatsApp / Facebook / Telegram / SMS webhooks, outbound send,
+  and per-tenant channel integrations.
+- **Multiple payment methods**: CARD, WALLET, PAYPAL, BANK via a pluggable gateway
+  abstraction.
+- **Social & commerce**: family groups, per-user settings, referrals / invite friends
+  (+ loyalty rewards), and **VOUCHER / OFFER** promotion kinds.
+
+### New features
+- **2FA / security profile** — `/api/security/profile/**`: email/SMS OTP, RFC 6238 TOTP
+  (JDK-only HMAC-SHA1, 30s window), and recoverable app-keys (`TwoFactorService`).
+- **Identity verification** — submit NIC / passport / driving licence + photo encrypted,
+  with admin review at `/api/identity/*` and `/api/admin/identity/{id}/review`.
+- **PII security** — `PiiEncryptor` (AES-256/GCM, per-record IV) + masked-PII endpoint
+  `GET /api/security/pii/me`; `PiiService`, `Base32`, `pii::master-key` env.
+- **Omnichannel messaging** — `MessagingController`/`MessagingService`,
+  `MessagingDispatcher` + `WhatsAppMessagingAdapter`; public webhook ingestion
+  (deduplicated by external ref), outbound replies, conversation log and channel config.
+- **Multi-payment gateways** — `PaymentGatewayRegistry` with `CardGateway`,
+  `WalletGateway`, `PayPalGateway` and a lenient `OfflineGatewayStub` (BANK/UPI);
+  honored by `PaymentService` + `/api/payments/**`.
+- **Family groups** — create / join / remove-member / list (+ members) via `/api/family`.
+- **Per-user settings** — theme / language / currency / notification preferences via
+  `GET`/`PUT /api/settings`.
+- **Referrals** — generate codes, invite by email (encrypted), validate publicly, reward
+  100 loyalty points to the referrer on join, via `/api/referrals*`.
+- **Vouchers & offers** — promotion `kind` extended to `VOUCHER` / `OFFER` alongside
+  `PERCENT` / `FLAT` discount types.
+- **Open registration** — `AgentOnboardingService` auto-approves a shop when the tenant's
+  moderation mode is `INSTANT`, auto-provisioning tenant + provider for instant selling.
+
+### Fixes in this release
+- PII (identity document numbers, contact copies, invitee emails) now encrypted at rest;
+  referral invitee emails are masked in responses.
+- Payment requests expose the payment method explicitly; gateway registry routes to the
+  correct offline backend per method (CARD / WALLET / PAYPAL / BANK).
+
+### Testing
+- Expanded test suite from **82 to 135** passing tests (0 failures, BUILD SUCCESS) — unit +
+  integration + WireMock contract + full flow.
+- New coverage: TwoFactorService, IdentityVerificationService, PiiEncryptor, MessagingService,
+  FamilyGroupService, UserSettingsService, ReferralService, and expanded promotion/payment/
+  auth tests.
+
+### Known limitations
+- Messaging/WhatsApp adapters default to deterministic offline stubs; real transport is
+  enabled by `WHATSAPP_ENABLED` / `WHATSAPP_ENDPOINT`. Payment gateways are offline/
+  deterministic stubs; production processors are wired by deployment configuration.

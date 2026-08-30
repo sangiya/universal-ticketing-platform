@@ -52,13 +52,17 @@ public class AuthService {
         }
         User.Role role = resolveRole(request.getRole());
         Long tenantId = resolveTenant(request.getTenantSlug());
+        if (role == User.Role.AGENT && tenantId == null) {
+            tenantId = provisionAgentTenant(request);
+        }
         User user = new User(
                 request.getUsername(),
                 passwordEncoder.encode(request.getPassword()),
                 request.getFullName(),
                 request.getEmail(),
                 role,
-                tenantId);
+                tenantId,
+                request.getPhone());
         userRepository.save(user);
         return authenticate(request.getUsername(), request.getPassword());
     }
@@ -86,6 +90,46 @@ public class AuthService {
         Tenant tenant = tenantRepository.findBySlug(tenantSlug.toLowerCase())
                 .orElseThrow(() -> new NotFoundException("Tenant not found: " + tenantSlug));
         return tenant.getId();
+    }
+
+    /**
+     * Uber/PickMe style activation: an agent with no tenant gets its own shop
+     * tenant, ready to sell immediately (moderation mode INSTANT).
+     */
+    private Long provisionAgentTenant(RegisterRequest request) {
+        String slug = uniqueAgentSlug(request.getUsername());
+        Tenant tenant = new Tenant(
+                slug,
+                request.getFullName() + " Shop",
+                defaultIfBlank(request.getCountryIso(), "LK"),
+                defaultIfBlank(request.getCurrencyIso(), "LKR"),
+                defaultIfBlank(request.getDefaultLanguage(), "en"),
+                defaultIfBlank(request.getTimezone(), "Asia/Colombo"),
+                null);
+        Tenant saved = tenantRepository.save(tenant);
+        return saved.getId();
+    }
+
+    private String uniqueAgentSlug(String username) {
+        String base = username == null ? "agent" : username;
+        String slug = base.trim().toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
+        if (slug.isBlank()) {
+            slug = "agent";
+        }
+        slug = slug + "-shop";
+        String candidate = slug;
+        int n = 2;
+        while (tenantRepository.existsBySlug(candidate)) {
+            candidate = slug + "-" + n;
+            n++;
+        }
+        return candidate;
+    }
+
+    private String defaultIfBlank(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     public AuthResponse login(LoginRequest request) {

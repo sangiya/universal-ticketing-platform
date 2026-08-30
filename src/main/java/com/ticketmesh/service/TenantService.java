@@ -70,6 +70,15 @@ public class TenantService {
         return toResponse(tenant);
     }
 
+    @Transactional
+    public TenantResponse setModerationMode(String slug, Tenant.ModerationMode mode) {
+        Tenant tenant = requireTenant(slug);
+        tenant.setModerationMode(mode);
+        tenant.bumpConfigVersion();
+        tenantRepository.save(tenant);
+        return toResponse(tenant);
+    }
+
     @Transactional(readOnly = true)
     public Tenant requireTenant(String slug) {
         return tenantRepository.findBySlug(slug.toLowerCase())
@@ -86,6 +95,6 @@ public class TenantService {
         return new TenantResponse(
                 t.getId(), t.getSlug(), t.getName(), t.getCountryIso(), t.getCurrencyIso(),
                 t.getDefaultLanguage(), t.getTimezone(), t.getDomain(), t.isEnabled(),
-                t.getConfigVersion());
+                t.getConfigVersion(), t.getModerationMode().name());
     }
 }

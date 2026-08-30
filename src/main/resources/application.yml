@@ -28,6 +28,8 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   qr:
     secret: ${QR_SECRET:change-this-qr-signing-secret-please-2026}
+  pii:
+    master-key: ${PII_MASTER_KEY:ticketmesh-pii-master-key-change-me-2026!!}
   reservation:
     pending-timeout-ms: ${RESERVATION_PENDING_TIMEOUT_MS:900000}
     hold-timeout-ms: ${RESERVATION_HOLD_TIMEOUT_MS:1800000}
@@ -40,6 +42,10 @@ app:
   provider:
     connect-timeout-ms: ${PROVIDER_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${PROVIDER_READ_TIMEOUT_MS:3000}
+  messaging:
+    whatsapp:
+      enabled: ${WHATSAPP_ENABLED:true}
+      endpoint: ${WHATSAPP_ENDPOINT:https://offline.ticketmesh.local/whatsapp/send}
 
 management:
   endpoints:

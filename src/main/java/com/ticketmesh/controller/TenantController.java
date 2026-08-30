@@ -68,6 +68,14 @@ public class TenantController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/tenants/{slug}/moderation")
+    public ResponseEntity<TenantResponse> setTenantModeration(
+            @PathVariable("slug") String slug,
+            @RequestParam("mode") com.ticketmesh.model.Tenant.ModerationMode mode) {
+        return ResponseEntity.ok(tenantService.setModerationMode(slug, mode));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/tenants/{slug}/branding")
     public ResponseEntity<BrandingResponse> upsertBranding(
             @PathVariable("slug") String slug, @Valid @RequestBody BrandingRequest request) {

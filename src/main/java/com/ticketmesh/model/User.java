@@ -55,6 +55,32 @@ public class User {
     @Column(name = "tenant_id")
     private Long tenantId;
 
+    @Size(max = 40)
+    @Column(length = 40)
+    private String phone;
+
+    @Column(name = "email_encrypted", length = 512)
+    private String emailEncrypted;
+
+    @Column(name = "phone_encrypted", length = 512)
+    private String phoneEncrypted;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "two_factor_method", length = 20)
+    private TwoFactorMethod twoFactorMethod;
+
+    @Column(name = "totp_secret", length = 128)
+    private String totpSecret;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled = false;
+
+    @Column(name = "app_key_hash", length = 255)
+    private String appKeyHash;
+
+    @Column(name = "app_key_issued_at")
+    private Instant appKeyIssuedAt;
+
     public User() {
     }
 
@@ -72,6 +98,12 @@ public class User {
         this.tenantId = tenantId;
         this.status = Status.ACTIVE;
         this.createdAt = Instant.now();
+    }
+
+    public User(String username, String password, String fullName, String email, Role role,
+                Long tenantId, String phone) {
+        this(username, password, fullName, email, role, tenantId);
+        this.phone = phone;
     }
 
     public Long getId() {
@@ -118,6 +150,70 @@ public class User {
         return createdAt;
     }
 
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getEmailEncrypted() {
+        return emailEncrypted;
+    }
+
+    public void setEmailEncrypted(String emailEncrypted) {
+        this.emailEncrypted = emailEncrypted;
+    }
+
+    public String getPhoneEncrypted() {
+        return phoneEncrypted;
+    }
+
+    public void setPhoneEncrypted(String phoneEncrypted) {
+        this.phoneEncrypted = phoneEncrypted;
+    }
+
+    public TwoFactorMethod getTwoFactorMethod() {
+        return twoFactorMethod;
+    }
+
+    public void setTwoFactorMethod(TwoFactorMethod twoFactorMethod) {
+        this.twoFactorMethod = twoFactorMethod;
+    }
+
+    public String getTotpSecret() {
+        return totpSecret;
+    }
+
+    public void setTotpSecret(String totpSecret) {
+        this.totpSecret = totpSecret;
+    }
+
+    public boolean isTotpEnabled() {
+        return totpEnabled;
+    }
+
+    public void setTotpEnabled(boolean totpEnabled) {
+        this.totpEnabled = totpEnabled;
+    }
+
+    public String getAppKeyHash() {
+        return appKeyHash;
+    }
+
+    public void setAppKeyHash(String appKeyHash) {
+        this.appKeyHash = appKeyHash;
+    }
+
+    public Instant getAppKeyIssuedAt() {
+        return appKeyIssuedAt;
+    }
+
+    public void setAppKeyIssuedAt(Instant appKeyIssuedAt) {
+        this.appKeyIssuedAt = appKeyIssuedAt;
+    }
+
     public enum Role {
         CUSTOMER,
         AGENT,
@@ -127,5 +223,12 @@ public class User {
     public enum Status {
         ACTIVE,
         SUSPENDED
+    }
+
+    public enum TwoFactorMethod {
+        OTP_EMAIL,
+        OTP_SMS,
+        TOTP,
+        APP_KEY
     }
 }

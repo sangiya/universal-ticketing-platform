@@ -53,7 +53,28 @@ Anything not safely auto-fixable escalates to the runbook + support portal.
 
 - Secrets only via environment variables / secrets manager — never in the repository.
 - Default bootstrap admin password must be changed in production.
+- **PII master key** (`PII_MASTER_KEY`) must be a strong, unique value in production; it
+  encrypts identity documents and contact copies (AES-256/GCM). If workload restarts are
+  expected, use a stable key (or a secrets-manager-backed one). See
+  `docs/security-privacy-guide.md`.
+- **JWT secret** (`JWT_SECRET`) and **QR signing secret** (`QR_SECRET`) must also be changed
+  from defaults.
+- Enforce **2FA** for privileged accounts; review identity-verification approvals and the
+  masked-PII surface.
 - Apply least-privilege RBAC; review audit logs.
+
+## 6b. Messaging / omnichannel operations
+
+- Message transport adapters (WhatsApp / Facebook / Telegram / SMS) default to
+  deterministic **offline stubs**; enable real transport with `WHATSAPP_ENABLED=true` and
+  `WHATSAPP_ENDPOINT`.
+- The **public webhook** (`POST /api/messaging/webhook/tenant/{tenantId}/channel/{channel}`)
+  should be TLS-terminated and rate-limited at the edge; verify it is deduplicating by
+  external ref (idempotent).
+- Monitor the messaging conversation inbox for delivery failures; outbound failures are
+  recorded and surfaced as notifications.
+- Review per-tenant channel integrations and their **API-key references** (references, not
+  raw keys) via `/api/messaging/channels/{tenantId}`.
 
 ## 7. Backup / restore
 

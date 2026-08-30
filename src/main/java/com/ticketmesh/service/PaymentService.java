@@ -7,16 +7,20 @@ import com.ticketmesh.dto.SettleRequest;
 import com.ticketmesh.exception.ConflictException;
 import com.ticketmesh.exception.InvalidPaymentException;
 import com.ticketmesh.exception.NotFoundException;
+import com.ticketmesh.integration.PaymentGateway;
+import com.ticketmesh.integration.PaymentGatewayRegistry;
 import com.ticketmesh.model.Booking;
 import com.ticketmesh.model.Payment;
 import com.ticketmesh.repository.BookingRepository;
 import com.ticketmesh.repository.PaymentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class PaymentService {
@@ -26,11 +30,21 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
+    private final PaymentGatewayRegistry gatewayRegistry;
+
+    @Autowired
+    public PaymentService(PaymentRepository paymentRepository,
+                          BookingRepository bookingRepository,
+                          PaymentGatewayRegistry gatewayRegistry) {
+        this.paymentRepository = paymentRepository;
+        this.bookingRepository = bookingRepository;
+        this.gatewayRegistry = gatewayRegistry;
+    }
 
     public PaymentService(PaymentRepository paymentRepository,
                           BookingRepository bookingRepository) {
-        this.paymentRepository = paymentRepository;
-        this.bookingRepository = bookingRepository;
+        this(paymentRepository, bookingRepository,
+                new PaymentGatewayRegistry(List.of()));
     }
 
     @Transactional
@@ -71,7 +85,7 @@ public class PaymentService {
     }
 
     private PaymentResponse createPendingPayment(Booking booking, PaymentRequest request) {
-        String method = request.getMethod().toUpperCase();
+        String method = request.getMethod().trim().toUpperCase();
         String cardLast4 = validateCard(method, request);
 
         Payment payment = new Payment(
@@ -80,8 +94,9 @@ public class PaymentService {
                 CURRENCY,
                 method,
                 generateRef("pay"));
-        payment.setProviderRef("PROV-" + System.nanoTime());
         payment.setCardLast4(cardLast4);
+        PaymentGateway gateway = gatewayRegistry.forMethod(method);
+        gateway.authorize(payment, request);
         paymentRepository.save(payment);
         return toResponse(payment);
     }

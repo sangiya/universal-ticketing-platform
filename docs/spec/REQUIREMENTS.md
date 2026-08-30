@@ -374,6 +374,93 @@ The authoritative blueprint document is bundled alongside:
 - **Full automation with a support system**.
 - Monitoring, health checks, observability.
 
+### 2.8 Open marketplace + moderation mode (Uber / PickMe instant activation)
+- Any **shop / agent** can **self-register** and start selling **immediately** (instant
+  activation) — no waiting for manual approval.
+- Alternatively, an operator may gate new shops behind **admin review** — the choice is a
+  **per-tenant moderation mode** (`INSTANT` or `REVIEW`) toggled via
+  `PUT /api/admin/tenants/{slug}/moderation?mode=`.
+- In `INSTANT` mode, applying for a shop auto-provisions the tenant + provider and
+  auto-approves the shop so the agent can list and sell right away.
+- In `REVIEW` mode, a shop application remains pending until the admin approves it.
+- Maps to blueprint **Part 07 (Provider Onboarding)**, **Part 22 (Customer & Loyalty /
+  marketplace self-service)**, **Part 25 (Multi-Tenancy SaaS)**.
+
+### 2.9 Strong onboarding security — 2FA, identity, PII
+- **Multi-factor authentication**: email/SMS **OTP**, **TOTP** (RFC 6238, HMAC-SHA1, 30s,
+  6-digit, **JDK-only** — no external library), and a recoverable **app-key** for
+  API integration. Exposed via `/api/security/profile/**`.
+- **Identity verification**: submit a government document (**NIC / passport / driving
+  licence**) plus photo, stored encrypted, with **admin review/approval** flow via
+  `POST /api/identity/verify`, `GET /api/identity/me`, `POST /api/admin/identity/{id}/review`.
+- **PII at rest**: sensitive fields (document numbers, contact phone/email copies,
+  referral invitee emails) encrypted with **AES-256/GCM** (random 12-byte IV per record).
+- **Masked PII view**: `GET /api/security/pii/me` returns only masked forms; raw PII is
+  never returned to clients.
+- Maps to blueprint **Part 41 (Security Architecture)** and **Part 42 (AI Security —
+  PII redaction surface)**.
+
+### 2.10 Omnichannel messaging
+- Channel abstraction over **WhatsApp / Facebook / Telegram / SMS** with a common inbound
+  **public webhook** ingestion endpoint per tenant/channel,
+  `POST /api/messaging/webhook/tenant/{tenantId}/channel/{channel}` (deduplicated by
+  external ref), **outbound send** (`POST /api/messaging/send`), a conversation log
+  (`GET /api/messaging`) and per-tenant **channel integrations** configured by an admin
+  (`POST /api/messaging/channels/{tenantId}`).
+- Offline-first: adapters default to deterministic stubs; `WHATSAPP_ENABLED` /
+  `WHATSAPP_ENDPOINT` control real transport in production.
+- Maps to blueprint **Part 41 (security/notification surface)** and the customer-support
+  (Part 23) omnichannel requirement.
+
+### 2.11 Multi-payment methods
+- Multiple payment methods: **CARD**, **WALLET**, **PAYPAL**, **BANK** (plus unknown
+  methods via a lenient fallback stub).
+- Pluggable, offline-deterministic **payment-gateway abstraction**
+  (`PaymentGatewayRegistry` + `CardGateway` / `WalletGateway` / `PayPalGateway` /
+  `OfflineGatewayStub`), reaching `POST /api/payments/booking/{bookingId}`,
+  `POST /api/payments/{paymentId}/settle` and status via
+  `GET /api/payments/booking/{bookingId}/status`.
+- Maps to blueprint **Part 17 (Payment Abstraction)**.
+
+### 2.12 Social — family groups
+- **Family groups**: a user creates a group, others join, the owner can remove members;
+  members share the platform under one group. Exposed via `/api/family` (create, join,
+  delete-member, list, members).
+- Maps to blueprint **Part 22 (Customer & Loyalty)** — shared customer profiles.
+
+### 2.13 Per-user settings
+- Per-user **settings** for theme, language (BCP-47), currency (ISO 4217) and
+  notification preferences (email / SMS / push / WhatsApp), read + update via
+  `GET /api/settings`, `PUT /api/settings`.
+- Maps to blueprint **Part 22 (Customer profile / preferences)** and **Part 25
+  (multi-currency / multi-language)**.
+
+### 2.14 Referrals & invite friends
+- **Referral program**: each user generates a unique invite code, invites friends by
+  email (email encrypted at rest), validates codes publicly, and is **rewarded loyalty
+  points** when an invitee joins via their code. Exposed via `/api/referrals` (create,
+  invite, list, validate — validate is public).
+- Maps to blueprint **Part 22 (Customer & Loyalty)** — growth/referral mechanics.
+
+### 2.15 Vouchers & offers
+- Promotion engine extended beyond percentage/flat to **VOUCHER** and **OFFER** kinds, so
+  free vouchers and merchant offers are first-class alongside promo codes. Created/listed
+  via `/api/promotions` with `kind`; applied by `PricingService` at checkout.
+- Maps to blueprint **Part 21 (Promotion Engine)**.
+
+### 2.16 White-label deploy anywhere
+- The platform can be **self-hosted** (Windows, Linux, Docker/docker-compose,
+  Kubernetes/Helm/EKS) or run on **any cloud** (AWS ECS via Terraform, or a generic VPS),
+  and can be sold as licensed software, self-hosted, or a fully **managed service**.
+- Any agent/tenant can **white-label** the platform as their own branded web/app purely by
+  configuration (per-tenant branding + theme via `GET /api/tenant/{slug}/branding` and
+  `PUT /api/admin/tenants/{slug}/branding`), with no code changes.
+- Env-driven configuration: `DB_URL` / `DB_USERNAME` / `DB_PASSWORD`, `JWT_SECRET`,
+  `QR_SECRET`, `PII_MASTER_KEY`, `WHATSAPP_ENABLED` / `WHATSAPP_ENDPOINT`,
+  `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`.
+- Maps to blueprint **Part 24 (No-Code / White-Label Configuration)**, **Part 45**
+  (Kubernetes & GitOps), **Part 46 (AWS Cloud Architecture)** and §2.4 above.
+
 ## 3. Product-name & business direction guidance
 
 - Blueprint product name: **TicketMesh** — "All your tickets, one platform."

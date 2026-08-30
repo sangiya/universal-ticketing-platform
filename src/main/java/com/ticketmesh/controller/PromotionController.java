@@ -37,10 +37,12 @@ public class PromotionController {
     public ResponseEntity<Promotion> create(@RequestBody PromotionRequest request) {
         Promotion.DiscountType type = Promotion.DiscountType.valueOf(
                 request.discountType() == null ? "FLAT" : request.discountType().toUpperCase());
+        Promotion.Kind kind = Promotion.Kind.valueOf(
+                request.kind() == null ? "PROMO" : request.kind().toUpperCase());
         return ResponseEntity.status(HttpStatus.CREATED).body(promotionService.create(
                 requestContext.tenantIdOr(request.tenantId()), request.code(), request.name(),
                 type, request.discountValue(), request.minPurchase(), request.startsAt(),
-                request.endsAt(), request.maxUses(), request.domains()));
+                request.endsAt(), request.maxUses(), request.domains(), kind));
     }
 
     @GetMapping

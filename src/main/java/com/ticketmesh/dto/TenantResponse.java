@@ -10,5 +10,6 @@ public record TenantResponse(
         String timezone,
         String domain,
         boolean enabled,
-        int configVersion) {
+        int configVersion,
+        String moderationMode) {
 }

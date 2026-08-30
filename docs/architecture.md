@@ -1,5 +1,9 @@
 # TicketMesh — Architecture
 
+> **Graphical views** (context / container / component / runtime / deployment diagrams):
+> see `docs/architecture-graphs.md`. **Technology decisions**: see `docs/tech-matrix.md`.
+> **Competitive positioning**: see `docs/global-benchmark.md`.
+
 ## 1. System Overview
 
 TicketMesh is a modular Spring Boot backend (single deployable "core" service) fronted by
@@ -27,11 +31,15 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
 - **Agent/Shop App** — mobile-responsive PWA for agents to onboard, upload products and
   manage their own shop.
 - **ticketmesh-core (Spring Boot 3.3.5)** — REST APIs:
-  - Identity & Auth (JWT)
-  - Tenant & Branding (white-label config)
-  - Agent Onboarding (shop apply -> approve)
+  - Identity & Auth (JWT, 2FA — OTP / TOTP RFC 6238 / app-keys)
+  - Identity verification (NIC / passport / driving licence + admin review) and
+    **PII encryption at rest** (AES-256/GCM) + masked-PII view
+  - Tenant & Branding (white-label config, **moderation mode** INSTANT/REVIEW)
+  - Agent Onboarding (open self-registration with **instant activation**)
   - Provider + Catalog (products, universal search)
-  - Booking / Reservation / Payment / Inventory
+  - Booking / Reservation / Payment (CARD / WALLET / PAYPAL / BANK gateways) / Inventory
+  - **Omnichannel messaging** (WhatsApp / Facebook / Telegram / SMS webhooks + outbound)
+  - **Social** — family groups, per-user settings, referrals + loyalty rewards
   - Support (tickets, 24/7 portal, SLA, escalation)
   - Fraud / Risk detection + ops signals
   - **ML / analytics** (`com.ticketmesh.ml`) — demand forecast, price prediction,
@@ -47,16 +55,26 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
     intelligence and audit (`/api/ops`, `/api/audit`)
   - AI assistant + RAG + guardrails
   - Actuator health/readiness/metrics
-- **Datastores** — MySQL/PostgreSQL (primary), Flyway migrations, H2 (test, MySQL mode).
+- **Datastores** — MySQL/PostgreSQL (primary), Flyway migrations (`V1..V8` — the V7/V8 add
+  security/messaging and social/PII schemas), H2 (test, MySQL mode).
 - **Provider integration** — canonical HTTP client, WireMock-stubbed in tests.
 - **Observability** — Spring Boot Actuator + Micrometer, Prometheus/Grafana.
 
 ## 3. Security
 
 - OAuth2/JWT auth with `CUSTOMER`, `AGENT`, `ADMIN` roles; method-level authorization.
-- Tenant isolation on data; passwords hashed; secrets via env vars (never committed).
+- **2FA** — email/SMS OTP, RFC 6238 TOTP (JDK-only), and app-keys
+  (`TwoFactorService`, `/api/security/profile/**`).
+- **Identity verification** — government documents (NIC / passport / driving licence) with
+  admin review (`/api/identity/*`, `/api/admin/identity/{id}/review`).
+- **PII at rest** — sensitive fields encrypted with AES-256/GCM (`PiiEncryptor`), with a
+  masked-PII view (`/api/security/pii/me`).
+- Tenant isolation on data; passwords hashed (BCrypt); secrets via env vars (never
+  committed) — `JWT_SECRET`, `QR_SECRET`, `PII_MASTER_KEY`.
 - Input validation on all DTOs; global exception handling.
 - Fraud detection (0-100 score, flags, auto-block, audit signals) with admin override.
+
+See `docs/security-privacy-guide.md` for the full security & privacy reference.
 
 ## 4. Deployment Topology
 
@@ -64,6 +82,11 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
 - **Runtime**: containerized app + managed DB.
 - **Scaling**: stateless app -> horizontal autoscaling (HPA/KEDA on EKS, ASG/ECS on AWS);
   DB scales vertically or via managed service.
-- **Targets**: AWS, EKS, on-prem, Docker, single server.
+- **Targets**: AWS, EKS, on-prem, Docker, single server — **plus Windows, Linux and any
+  generic VPS/cloud** for self-hosting.
+- **White-label**: any tenant/agent can run their own branded instance by configuration, or
+  use a hosted managed service.
 
-See `docs/deployment-autoscaling.md` for the full deployment guide.
+See `docs/deployment-autoscaling.md` for autoscaling, `docs/self-host-deployment.md` for
+step-by-step self-hosting (Windows / Linux / Docker / K8s / cloud), and
+`docs/white-label-guide.md` for per-tenant white-label deployment.

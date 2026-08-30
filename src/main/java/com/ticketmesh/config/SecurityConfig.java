@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trains/**").permitAll()
                         .requestMatchers("/api/tickets/verify").permitAll()
+                        .requestMatchers("/api/messaging/webhook/**").permitAll()
+                        .requestMatchers("/api/referrals/validate").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tenant/*/branding").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health/**").permitAll()

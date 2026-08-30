@@ -70,6 +70,10 @@ public class Promotion {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private Kind kind = Kind.PROMO;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -78,7 +82,7 @@ public class Promotion {
 
     public Promotion(Long tenantId, String code, String name, DiscountType discountType,
                      BigDecimal discountValue, BigDecimal minPurchase, Instant startsAt,
-                     Instant endsAt, Integer maxUses, String domains) {
+                     Instant endsAt, Integer maxUses, String domains, Kind kind) {
         this.tenantId = tenantId;
         this.code = code;
         this.name = name;
@@ -89,6 +93,7 @@ public class Promotion {
         this.endsAt = endsAt;
         this.maxUses = maxUses;
         this.domains = domains;
+        this.kind = kind != null ? kind : Kind.PROMO;
         this.createdAt = Instant.now();
     }
 
@@ -152,6 +157,14 @@ public class Promotion {
         this.enabled = enabled;
     }
 
+    public Kind getKind() {
+        return kind;
+    }
+
+    public void setKind(Kind kind) {
+        this.kind = kind;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -169,6 +182,14 @@ public class Promotion {
 
     public enum DiscountType {
         PERCENT,
-        FLAT
+        FLAT,
+        VOUCHER,
+        OFFER
+    }
+
+    public enum Kind {
+        PROMO,
+        VOUCHER,
+        OFFER
     }
 }

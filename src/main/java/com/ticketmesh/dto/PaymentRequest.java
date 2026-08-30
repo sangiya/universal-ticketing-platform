@@ -15,7 +15,8 @@ public class PaymentRequest {
     private BigDecimal amount;
 
     @NotBlank
-    @Pattern(regexp = "CARD|UPI|WALLET", message = "method must be CARD, UPI or WALLET")
+    @Pattern(regexp = "(?i)CARD|UPI|WALLET|PAYPAL|BANK",
+            message = "method must be CARD, UPI, WALLET, PAYPAL or BANK")
     private String method;
 
     @Size(max = 16)

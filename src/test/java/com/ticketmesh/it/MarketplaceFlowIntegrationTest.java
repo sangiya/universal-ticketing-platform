@@ -84,6 +84,11 @@ class MarketplaceFlowIntegrationTest {
 
         tenantId = tenant.get("id").asLong();
         assertEquals("demo-sg", tenant.get("slug").asText());
+        assertEquals("INSTANT", tenant.get("moderationMode").asText());
+
+        JsonNode moderated = read(put("/api/admin/tenants/demo-sg/moderation?mode=REVIEW")
+                .header("Authorization", "Bearer " + adminToken), 200);
+        assertEquals("REVIEW", moderated.get("moderationMode").asText());
     }
 
     @Test

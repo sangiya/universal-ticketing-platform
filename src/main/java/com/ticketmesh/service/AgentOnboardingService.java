@@ -49,6 +49,9 @@ public class AgentOnboardingService {
                 owner, tenant, request.getShopName(), request.getBusinessType(),
                 request.getCountryIso(), request.getCurrencyIso(), request.getAbout(),
                 request.getContactEmail(), request.getContactPhone());
+        if (tenant.getModerationMode() == Tenant.ModerationMode.INSTANT) {
+            shop.approve(owner.getId());
+        }
         shopRepository.save(shop);
         return toResponse(shop);
     }

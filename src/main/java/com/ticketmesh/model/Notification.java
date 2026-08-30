@@ -106,7 +106,11 @@ public class Notification {
     public enum Channel {
         IN_APP,
         EMAIL,
-        PUSH
+        PUSH,
+        SMS,
+        WHATSAPP,
+        FACEBOOK,
+        TELEGRAM
     }
 
     public enum Status {

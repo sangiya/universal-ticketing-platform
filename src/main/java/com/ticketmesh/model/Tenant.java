@@ -2,6 +2,8 @@ package com.ticketmesh.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -85,6 +87,10 @@ public class Tenant {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_mode", nullable = false, length = 12)
+    private ModerationMode moderationMode = ModerationMode.INSTANT;
 
     public Tenant() {
     }
@@ -215,5 +221,19 @@ public class Tenant {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public ModerationMode getModerationMode() {
+        return moderationMode;
+    }
+
+    public void setModerationMode(ModerationMode moderationMode) {
+        this.moderationMode = moderationMode;
+        this.updatedAt = Instant.now();
+    }
+
+    public enum ModerationMode {
+        INSTANT,
+        REVIEW
     }
 }
