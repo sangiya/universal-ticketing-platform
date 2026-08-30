@@ -58,6 +58,9 @@ an admin portal and an agent/shop app channel.
   (Actuator/Micrometer/Prometheus).
 - **Deploy anywhere** — Windows, Linux, Docker/docker-compose, Kubernetes/Helm, or any
   cloud (AWS ECS via Terraform or a generic VPS); self-host or managed.
+- **Edge & platform surface** — config-driven multi-domain verticals, explicit capability
+  matrix, no-code product templates, data-platform streaming ingest, and edge rate limiting
+  + JVM observability — all under `/api/platform/**` and `/api/edge/**`.
 - **Offline-friendly** — H2 in MySQL mode for tests; WireMock stubs for provider/API calls.
 
 ---
@@ -130,6 +133,9 @@ in production). Always change defaults in production.
 | Admin/Tenant | `/api/admin/dashboard`, `/api/admin/shops`, `/api/admin/tenants` (+ `/status`, `/moderation`, `/branding`), `/api/admin/providers` | ADMIN |
 | Ops | `/api/ops/events`, `/api/ops/disruption`, `/api/audit` | Admin |
 | Health | `GET /api/health/live`, `GET /actuator/health` | public |
+| Platform/Config | `GET /api/platform/domains`, `.../capabilities?domain=`, `.../product-templates?kind=` | Vertical catalog, capability matrix, no-code templates (auth) |
+| Edge/Observability | `GET /api/edge/health`, `GET /api/edge/metrics`, `POST /api/platform/ingest` | Rate-limit probe, JVM metrics, data-platform ingest (auth) |
+| AI surface | `GET /api/ai/search?q=`, `GET /api/ai/tools`, `GET /api/trips/plan`, `GET /api/analytics/seat`, `.../dynamic-price` | Conversational search, agent tools, trip planner, seat + surge (auth) |
 
 See **`docs/api-production.md`** and **`docs/api-test.md`** for the complete test and
 production API references.
@@ -168,7 +174,7 @@ Regenerate the scope `.docx`/`.pdf` with: `python tools/generate_docs.py`.
 ## Testing
 
 ```bash
-mvn test          # 135 tests: unit + integration + WireMock contract + full flow
+mvn test          # 204 tests: unit + integration + WireMock contract + full flow
 cd frontend && npm run build   # type-checks + produces the PWA
 ```
 

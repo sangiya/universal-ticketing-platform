@@ -25,6 +25,8 @@ public class AiAssistantService {
             does not cover the question, recommend asking for clarification.
             Keep answers concise and do not invent pricing, policies or contact
             details that are not present in the context.
+            When a search, pricing or booking-status tool is available, point the
+            user towards it instead of guessing; never fabricate tool output.
             """;
 
     private final GuardrailService guardrailService;

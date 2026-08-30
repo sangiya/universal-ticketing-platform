@@ -33,10 +33,11 @@
 | ORM | Spring Data JPA / Hibernate | BUILT | `model/`, `repository/` |
 | Primary database | MySQL 8 (runtime), PostgreSQL-compatible SQL | BUILT | `application.yml`, `docker-compose.yml` |
 | Test database | H2 (MySQL compatibility mode) | BUILT | `application.yml` (test profile) |
-| Schema migration | Flyway (versioned migrations) | BUILT | `src/main/resources/db/migration/V1..V6` |
+| Schema migration | Flyway (versioned migrations) | BUILT | `src/main/resources/db/migration/V1..V9` |
 | Transaction mgmt | `@Transactional`, pessimistic locks for inventory | BUILT | `service/ReservationService`, `ProductOrderService` |
 | Multi-tenancy | per-tenant row scoping + tenant entity (ISO 3166-1, ISO 4217, BCP-47) | BUILT | `model/Tenant.java` |
 | Auditing | audit log table + event/outbox table | BUILT | `V5/V6` migrations, `AuditService`, `EventService` |
+| Multi-domain verticals | config-driven registry (TRAIN / BUS / AIR / EVENT / CINEMA / MUSEUM; no code per vertical) | BUILT | `config/domain/DomainRegistry` |
 
 ## Domain / business services
 
@@ -57,6 +58,10 @@
 | Vouchers / offers | promotion `kind` VOUCHER / OFFER + PERCENT / FLAT | BUILT | `Promotion`, `PromotionService` |
 | Messaging (omnichannel) | WhatsApp / Facebook / Telegram / SMS webhooks + outbound | BUILT / ADAPTER | `MessagingService`, `integration/MessagingDispatcher` |
 | Support | 24/7 portal, SLA, assignment, escalation | BUILT | `SupportService` |
+| Capability matrix | explicit per-domain capability catalog + `hasCapability` lookup | BUILT | `config/capability/CapabilityCatalog` |
+| No-code product templates | table-driven templates (kind -> label + fields), no per-kind branches | BUILT | `config/product/ProductCatalogBuilder` |
+| Data-platform stream | `ingest_events` table + PENDING→PROCESSED drain (Kafka-ready sink) | BUILT | `V9` migration, `dataplatform/EventStreamService`, `DataStreamController` |
+| Edge rate limiting | thread-safe fixed-window limiter + gateway-style probe | BUILT | `edge/EdgeRateLimiter`, `edge/EdgeController` |
 | Compliance (SLA/audit) | scheduled SLA-breach escalation + audit trail | BUILT | `service/*`, scheduler |
 
 ## Security & privacy
@@ -78,8 +83,12 @@
 
 | Concern | Technology | Status | Where |
 |---------|-----------|--------|-------|
-| Deterministic ML-style suite | pure-Java heuristics (forecast, price, recommend, anomaly, trend, analyst) | BUILT | `com.ticketmesh.ml` |
+| Deterministic ML-style suite | pure-Java heuristics (forecast, price, recommend, anomaly, trend, analyst, **seat recommendation**) | BUILT | `com.ticketmesh.ml` |
 | AI assistant + RAG | async LLM client adapter + retrieval guardrails | BUILT / ADAPTER | `service/AiAssistant*`, `ai/` |
+| AI conversational search | intent detection + entity search | BUILT | `ai/service/IntentService`, `AiAssistantController` (`/api/ai/search`) |
+| AI agent tools | tool registry + per-role authorization | BUILT | `ai/agent/AgentAuthorizationService`, `AgentToolsController` (`/api/ai/tools`) |
+| Smart trip planner | automated plan with legs, fare, feasibility | BUILT | `TripPlannerService` (`/api/trips/plan`) |
+| Dynamic pricing / surge | demand-driven projection with 1.6x guardrail clamp | BUILT | `DynamicPricingEngine` (`/api/analytics/dynamic-price`) |
 | NL data analyst | question -> deterministic SQL/aggregation answer | BUILT | `AiDataAnalystService` |
 | Fraud detection | TPA/multi-strategy scoring 0-100 + flags + auto-block | BUILT | `FraudDetectionService` |
 
@@ -124,7 +133,7 @@
 | AWS | Terraform: ECS Fargate + target-tracking auto scaling + CloudWatch | BUILT | `infra/terraform/*` |
 | CI/CD | GitHub Actions: `ci.yml`, `security.yml`, `release.yml` | BUILT | `.github/workflows/` |
 | Security scanning | Gitleaks, Checkov, OWASP dependency check | BUILT | `security.yml` |
-| Observability | Actuator health/readiness + Micrometer + Prometheus | BUILT | `application.yml`, `HealthController` |
+| Observability | Actuator health/readiness + Micrometer + Prometheus + `TraceService` trace/span context + JVM metrics snapshot | BUILT | `application.yml`, `HealthController`, `observability/TraceService`, `edge/EdgeController` (`/api/edge/metrics`) |
 
 ## Interoperability / standards
 

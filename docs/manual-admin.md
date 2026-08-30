@@ -37,6 +37,10 @@ production).
 ## 5. Catalog
 
 - Browse and search the unified catalog across all providers and shops.
+- **Platform config**: query the config-driven surfaces to see what the platform supports —
+  verticals (`GET /api/platform/domains`), the per-domain capability matrix
+  (`GET /api/platform/capabilities?domain=`), and the no-code product-kind templates
+  (`GET /api/platform/product-templates?kind=`) that define product fields.
 
 ## 6. Support (24/7 portal)
 
@@ -74,6 +78,11 @@ production).
 ## 11. Monitoring & automation
 
 - **Health**: liveness/readiness and actuator health.
+- **Edge probes**: `/api/edge/health` reports the gateway status plus the configured
+  rate-limit rules; `/api/edge/metrics` streams a live JVM snapshot (uptime, threads,
+  heap used/max) for capacity dashboards.
+- **Data-platform ingest**: analytics events are ingested via `POST /api/platform/ingest`
+  and drained from `GET /api/platform/ingest/pending` — watch for a growing pending queue.
 - **Auto-detect**: monitors surface dev/QA/live issues automatically.
 - **Auto-fix**: scripted remediation for known issues (see ops runbook).
 - Dashboard aggregates system health, support queue, fraud and booking metrics.

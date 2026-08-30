@@ -1,6 +1,6 @@
 # TicketMesh — API Reference (PRODUCTION)
 
-> Production API documentation for TicketMesh v1.0.0. This is the stable public contract.
+> Production API documentation for TicketMesh v1.3.0. This is the stable public contract.
 > All requests and responses are JSON. Authentication uses OAuth2/JWT Bearer tokens.
 
 ## Base URL (production)
@@ -23,6 +23,11 @@ the authenticated tenant of the token.
   - `/api/ops/**`, `/api/audit`, `/api/admin/**` — `ADMIN` or `AGENT`.
   - `/api/security/fraud/**`, `/api/admin/**` — `ADMIN`.
   - `/api/security/profile/**`, `/api/security/pii/**` (2FA, app-keys, masked PII) — authenticated.
+- **Default-secured (auth)**: everything not explicitly public is
+  `.anyRequest().authenticated()` — this includes the config, edge and AI surfaces:
+  `/api/platform/**` (domains, capabilities, product templates, ingest),
+  `/api/edge/**` (rate-limit health + JVM metrics), `/api/ai/search`, `/api/ai/tools`,
+  `/api/trips/plan`, `/api/analytics/seat` and `/api/analytics/dynamic-price`.
 - **Public (no auth)**: `POST /api/auth/register`, `POST /api/auth/login`,
   `GET /api/tenant/{slug}/branding`, `GET /api/catalog/**`, `GET /api/tickets/verify`,
   `GET /api/referrals/validate`, `POST /api/messaging/webhook/tenant/{tenantId}/channel/{channel}`,
@@ -135,15 +140,19 @@ All errors return a JSON object with a message and an HTTP status:
 | POST | `/payments/{paymentId}/settle` | auth | Settle / confirm a payment. |
 | GET | `/payments/booking/{bookingId}/status` | auth | Check payment status. |
 
-### Analytics / ML (auth)
+### Analytics / ML / AI (auth)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/ai/search?q=` | auth | AI conversational search: intent detection + `matches[{type,title,id}]`. |
+| GET | `/ai/tools` | auth | AI agent tool registry `{role, tools[{name,requiresPermission,description}]}` scoped to the caller's role. |
 | GET | `/analytics/forecast/{productId}?horizonDays=` | auth | Demand forecast: daily projections, seasonal factor, confidence. |
 | GET | `/analytics/recommend?limit=` | auth | Personalized recommendations (history + popularity). |
 | GET | `/analytics/price/{productId}?horizonDays=` | auth | Price projection + surge rate. |
 | GET | `/analytics/trend?tenantId=` | auth | Trend report: orders + revenue by domain. |
 | GET | `/analytics/anomaly?amount=` | auth | Anomaly score (0-100) + risk level for an amount. |
 | POST | `/analytics/ask` | auth | NL data-analyst answer: `{"question":"..."}` -> `{"answer":"..."}`. |
+| GET | `/analytics/seat?count=&capacity=&preference=&taken=` | auth | AI seat recommendation `{seats[], comfortScore, reason}`. |
+| GET | `/analytics/dynamic-price?basePrice=&demandScore=&capacityRemaining=&capacityTotal=` | auth | Dynamic pricing / surge projection `{basePrice, surgeRate, projectedPrice, guardrailActive}` (1.6x guardrail clamp). |
 
 ### Globalization / i18n (auth)
 | Method | Path | Auth | Description |
@@ -171,6 +180,7 @@ All errors return a JSON object with a message and an HTTP status:
 | POST | `/trips/{tripId}/legs` | auth | Add a leg `{bookingId,note}`. |
 | GET | `/trips` | auth | My trips. |
 | GET | `/trips/{tripId}/legs` | auth | Legs of a trip. |
+| GET | `/trips/plan?tenantId=&origin=&destination=&legs=&startDate=` | auth | Automated smart trip plan `{origin, destination, legCount, legs[], totalFare, feasibilityNote}`. |
 | GET | `/pricing/{productId}?promoCode=&currency=` | auth | Final price after promo + currency conversion. |
 | POST | `/orders` | auth | Place a universal marketplace order `{tenantId,productId,quantity,promoCode?}`. |
 | GET | `/orders/mine` | auth | Current user's orders. |
@@ -210,9 +220,24 @@ All errors return a JSON object with a message and an HTTP status:
 | GET | `/health/live` | public | Liveness. |
 | GET | `/actuator/health` | public | Readiness + component health. |
 
+### Platform / config (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/platform/domains` | auth | Config-driven vertical catalog: list of `DomainDefinition` (key, displayName, supportsInventory, supportsTimedSlots, defaultCurrency). |
+| GET | `/platform/capabilities?domain=` | auth | Explicit per-domain capability matrix (`Capability`: name, domain, description, category); no `domain` returns the deduplicated overview. |
+| GET | `/platform/product-templates?kind=` | auth | No-code product-kind templates (`ProductTemplate`: kind, label, fields[]); no `kind` returns all templates. |
+| POST | `/platform/ingest` | auth | Data-platform streaming ingest `{eventType,payload}` -> `{eventType, status:"ACCEPTED"}` (analytics read-side / event-sink surface). |
+| GET | `/platform/ingest/pending?limit=` | auth | Pending ingested events, drained in id order (mark processed downstream). |
+
+### Edge / observability (auth)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/edge/health` | auth | Gateway-style edge probe `{status, rateLimits[]}` (configured fixed-window rate-limit rules). |
+| GET | `/edge/metrics` | auth | JVM metrics snapshot `{uptimeSeconds, activeThreads, heapUsedBytes, heapMaxBytes}` read from management beans — no extra runtime dependencies. |
+
 ## Versioning & stability
 
-- This is the v1.0.0 production contract. Breaking changes require a new major version and
+- This is the v1.3.0 production contract. Breaking changes require a new major version and
   a documented migration path (see release notes and SDLC).
 - Fields marked `nullable` in records may be `null`; never assume the field is present.
 

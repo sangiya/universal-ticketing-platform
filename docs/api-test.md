@@ -2,7 +2,7 @@
 
 > Test-environment API documentation for TicketMesh. Use this environment to develop and
 > validate integrations. Endpoints documented below are the stable public surface for
-> v1.0.0. Authentication: most endpoints require a Bearer JWT obtained from `/login`.
+> v1.3.0. Authentication: most endpoints require a Bearer JWT obtained from `/login`.
 
 ## Base URL (test)
 
@@ -112,15 +112,34 @@ https://test-api.ticketmesh.example/api
 | GET | `/health/live` | Liveness probe. |
 | GET | `/actuator/health` | Readiness/component health. |
 
-## Analytics / ML (auth)
+## Platform / config (auth)
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/platform/domains` | Config-driven vertical catalog (list of `DomainDefinition`: key, displayName, supportsInventory, supportsTimedSlots, defaultCurrency). |
+| GET | `/platform/capabilities?domain=` | Explicit per-domain capability matrix (`Capability`: name, domain, description, category); no `domain` returns the deduplicated overview. |
+| GET | `/platform/product-templates?kind=` | No-code product-kind templates (`ProductTemplate`: kind, label, fields[]); no `kind` returns all templates. |
+| POST | `/platform/ingest` | Data-platform streaming ingest `{eventType,payload}` -> `{eventType,"status":"ACCEPTED"}` (analytics read-side / event-sink surface). |
+| GET | `/platform/ingest/pending?limit=` | Pending ingested events drained in id order (mark processed downstream). |
+
+## Edge / observability (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/edge/health` | Gateway-style edge probe `{status, rateLimits[]}` (configured fixed-window rules). |
+| GET | `/edge/metrics` | JVM metrics snapshot `{uptimeSeconds, activeThreads, heapUsedBytes, heapMaxBytes}` (management beans, no extra SDK). |
+
+## Analytics / ML / AI (auth)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/ai/search?q=` | AI conversational search — intent detection + matches `{type,title,id}` (`ConversationalSearchResponse`). |
+| GET | `/ai/tools` | AI agent tool registry scoped to the caller's role `{role, tools[{name,requiresPermission,description}]}`. |
 | GET | `/analytics/forecast/{productId}?horizonDays=7` | Demand forecast (daily projections + confidence). |
 | GET | `/analytics/recommend?limit=5` | Personalized product recommendations. |
 | GET | `/analytics/price/{productId}?horizonDays=7` | Price projection / surge prediction. |
 | GET | `/analytics/trend?tenantId=` | Trend report (orders/revenue by domain). |
 | GET | `/analytics/anomaly?amount=1234.56` | Anomaly score + risk level for an amount. |
 | POST | `/analytics/ask` | Natural-language question -> data analyst answer (`{"question":"..."}`). |
+| GET | `/analytics/seat?count=&capacity=&preference=&taken=` | AI seat recommendation `{seats[], comfortScore, reason}`. |
+| GET | `/analytics/dynamic-price?basePrice=&demandScore=&capacityRemaining=&capacityTotal=` | Dynamic pricing / surge projection `{basePrice, surgeRate, projectedPrice, guardrailActive}` (1.6x clamp). |
 
 ## Globalization / i18n (auth)
 | Method | Path | Description |
@@ -148,6 +167,7 @@ https://test-api.ticketmesh.example/api
 | POST | `/trips/{tripId}/legs` | Add leg `{bookingId,note}`. |
 | GET | `/trips` | My trips. |
 | GET | `/trips/{tripId}/legs` | Legs of a trip. |
+| GET | `/trips/plan?tenantId=&origin=&destination=&legs=&startDate=` | Automated smart trip plan `{origin, destination, legCount, legs[], totalFare, feasibilityNote}`. |
 | GET | `/pricing/{productId}?promoCode=&currency=` | Final price with promo + currency conversion. |
 | POST | `/orders` | Place universal marketplace order `{tenantId,productId,quantity,promoCode?}`. |
 | GET | `/orders/mine` | Current user's orders. |
@@ -210,9 +230,12 @@ Response `200`: `{"score":0,"risk":"LOW","flags":[],"blocked":false}`.
 ## Testing notes
 - External provider/payment endpoints are stubbed with **WireMock** in the test env, so you
   can run full flows offline with deterministic responses.
-- Tests use H2 in MySQL mode with Flyway migrations.
-- 135 automated tests pass (0 failures, BUILD SUCCESS) across booking, payment, ticket,
+- Tests use H2 in MySQL mode with Flyway migrations (`V1..V9`).
+- 204 automated tests pass (0 failures, BUILD SUCCESS) across booking, payment, ticket,
   support, fraud, AI, ML/analytics, promotions/vouchers/offers, loyalty, reviews,
-  notifications, trips, globalization, pricing, ops, full-flow, and the onboarding-security
+  notifications, trips, globalization, pricing, ops, full-flow, the onboarding-security
   batch (2FA/OTP/TOTP/app-keys, identity verification, PII encryption, family, settings,
-  referrals, omnichannel messaging and multi-payment gateways).
+  referrals, omnichannel messaging and multi-payment gateways), and the new platform
+  surfaces (domain registry, capability matrix, product templates, data-platform ingest,
+  edge rate limiting + JVM metrics, tracing, conversational search, trip planner, agent
+  tools, seat recommendation and dynamic pricing).

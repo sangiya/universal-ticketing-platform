@@ -57,7 +57,7 @@ mvn -B -DskipTests package      # artifact: target/ticketmesh-core-*.jar
 Run the full test suite before deploying:
 
 ```bash
-mvn test                        # 135 tests, 0 failures, BUILD SUCCESS
+mvn test                        # 204 tests, 0 failures, BUILD SUCCESS
 ```
 
 ## 4. Deploy on Windows (bare metal)

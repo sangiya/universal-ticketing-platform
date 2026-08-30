@@ -30,8 +30,12 @@
 ## 4. Upload your tickets / services
 
 - From the app, choose **Add Product**.
-- Fill in the details: type, category, price/currency, availability/inventory, seat or
-  option map, and any policies (booking window, cancellation/refund rules, terms).
+- **No-code templates**: the platform provides config-driven product templates per kind
+  (train, bus, flight, cinema, event, class, general, museum) that define exactly which
+  fields to fill in — no schema knowledge required (`/api/platform/product-templates`).
+- Fill in the details from the template: type, category, price/currency,
+  availability/inventory, seat or option map, and any policies (booking window,
+  cancellation/refund rules, terms).
 - Publish — your product appears in the marketplace catalog and in search results.
 
 ## 5. White-label your shop app

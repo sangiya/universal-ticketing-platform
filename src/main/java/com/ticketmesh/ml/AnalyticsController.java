@@ -29,20 +29,42 @@ public class AnalyticsController {
 
     private final MlSuiteService mlSuiteService;
     private final AiDataAnalystService analystService;
+    private final DynamicPricingEngine dynamicPricingEngine;
     private final CurrentUser currentUser;
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
 
     public AnalyticsController(MlSuiteService mlSuiteService,
                                AiDataAnalystService analystService,
+                               DynamicPricingEngine dynamicPricingEngine,
                                CurrentUser currentUser,
                                UserRepository userRepository,
                                TenantRepository tenantRepository) {
         this.mlSuiteService = mlSuiteService;
         this.analystService = analystService;
+        this.dynamicPricingEngine = dynamicPricingEngine;
         this.currentUser = currentUser;
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
+    }
+
+    @GetMapping("/seat")
+    public SeatRecommendation seat(
+            @RequestParam(name = "count", defaultValue = "1") int count,
+            @RequestParam(name = "capacity") int capacity,
+            @RequestParam(name = "preference", defaultValue = "WINDOW") String preference,
+            @RequestParam(name = "taken", required = false) String taken) {
+        return mlSuiteService.recommendSeats(count, capacity, preference, taken);
+    }
+
+    @GetMapping("/dynamic-price")
+    public DynamicPriceProjection dynamicPrice(
+            @RequestParam(name = "basePrice") BigDecimal basePrice,
+            @RequestParam(name = "demandScore", defaultValue = "50") int demandScore,
+            @RequestParam(name = "capacityRemaining") int capacityRemaining,
+            @RequestParam(name = "capacityTotal") int capacityTotal) {
+        return dynamicPricingEngine.projectedPrice(
+                basePrice, demandScore, capacityRemaining, capacityTotal);
     }
 
     @GetMapping("/forecast/{productId}")

@@ -143,3 +143,70 @@
 - Messaging/WhatsApp adapters default to deterministic offline stubs; real transport is
   enabled by `WHATSAPP_ENABLED` / `WHATSAPP_ENDPOINT`. Payment gateways are offline/
   deterministic stubs; production processors are wired by deployment configuration.
+
+## v1.3.0 — Development Release (2026-08-31)
+
+### Highlights
+- **Config-driven platform surface**: multi-domain vertical catalog, explicit capability
+  matrix and no-code product-kind templates, all read-only from
+  `/api/platform/**`.
+- **Data-platform streaming ingestion**: outbox/event-sink style ingest surface
+  (`ingest_events` table + `EventStreamService`) — broker-free, Kafka-ready analytics
+  read-side.
+- **Edge / gateway surface**: thread-safe fixed-window edge rate limiting plus a
+  gateway-style health probe and a real JVM metrics snapshot at `/api/edge/**`.
+- **Observability tracing**: lightweight dependency-free `TraceService` (trace/span
+  context); OTel/Jaeger export is a documented optional gateway-side integration.
+- **AI upgrades**: conversational search with intent detection, automated smart trip
+  planner, per-role agent tool registry, AI seat recommendation and dynamic pricing /
+  surge projection.
+
+### New features
+- **Multi-domain verticals** — `DomainRegistry` config-driven catalog (TRAIN / BUS / AIR /
+  EVENT / CINEMA / MUSEUM; key, displayName, supportsInventory, supportsTimedSlots,
+  defaultCurrency) via `GET /api/platform/domains`; adding a vertical is a data change,
+  not code.
+- **Explicit capability matrix** — `CapabilityCatalog` per-domain capabilities
+  (`hasCapability` runtime lookup) via `GET /api/platform/capabilities?domain=`.
+- **No-code product templates** — `ProductCatalogBuilder` table-driven templates (kind,
+  label, fields[]) for SEAT_EVENT / TRAIN / BUS / AIR / CINEMA / CLASS / GENERAL / MUSEUM
+  via `GET /api/platform/product-templates?kind=`.
+- **Data-platform streaming surface** — Flyway `V9__data_platform.sql` (`ingest_events`)
+  + `EventStreamService` (record / pending / markProcessed / countByType), exposed as
+  `POST /api/platform/ingest` and `GET /api/platform/ingest/pending?limit=`.
+- **Edge rate limiting + probe** — `EdgeRateLimiter` (thread-safe fixed-window) and
+  `EdgeController`: `GET /api/edge/health` (status + rate-limit rules) and
+  `GET /api/edge/metrics` (JVM `MetricsSnapshot` from management beans).
+- **Observability tracing** — `TraceService` trace/span context generation
+  (dependency-free; export to OTel/Jaeger happens at the gateway as a production option).
+- **AI conversational search** — `IntentService` intent detection + entity search ->
+  `ConversationalSearchResponse` via `GET /api/ai/search?q=`.
+- **Smart trip planner** — `TripPlannerService` automated plan -> `TripPlan` (legs,
+  totalFare, feasibilityNote) via `GET /api/trips/plan`.
+- **Agent tool registry** — `AgentToolsController` + `AgentAuthorizationService` expose
+  per-role authorized tools via `GET /api/ai/tools` (`AgentToolsResponse`).
+- **AI seat recommendation** — `MlSuiteService.recommendSeats` ->
+  `SeatRecommendation` via `GET /api/analytics/seat`.
+- **Dynamic pricing / surge** — `DynamicPricingEngine` -> `DynamicPriceProjection`
+  (surge rate + 1.6x guardrail clamp) via `GET /api/analytics/dynamic-price`.
+
+### Security
+- All new surfaces fall under the default `.anyRequest().authenticated()` rule — every
+  `/api/platform/**`, `/api/edge/**` and `/api/ai/**` route requires a valid JWT; the
+  agent tool registry additionally filters tools by the caller's role.
+
+### Migrations
+- Added `V9__data_platform.sql` (`ingest_events` table); existing `V1..V8` unchanged.
+
+### Testing
+- Expanded test suite from **135 to 204** passing tests (0 failures, BUILD SUCCESS) —
+  unit + integration + WireMock contract + full flow.
+- New coverage: DomainRegistry, CapabilityCatalog, ProductCatalogBuilder, EventStreamService,
+  EdgeRateLimiter, TraceService, conversational search, trip planner, agent tools, seat
+  recommendation and dynamic pricing.
+
+### Known limitations
+- All platform/edge/AI routes are authenticated by default; widen the security rule set if
+  any surface should be public on deployment.
+- Ingest is a broker-free SQL-backed stream — switching to Kafka only replaces the drain
+  implementation behind `EventStreamService`, not the API.

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ public class MlSuiteService {
     private final BookingRepository bookingRepository;
     private final ProviderProductRepository productRepository;
     private final ProductOrderRepository orderRepository;
+    private final SeatRecommender seatRecommender = new SeatRecommender();
 
     public MlSuiteService(BookingRepository bookingRepository,
                           ProviderProductRepository productRepository,
@@ -230,6 +232,27 @@ public class MlSuiteService {
         }
         double z = (Math.log10(amount.doubleValue()) - 3.0) / 0.6;
         return round1(clamp(50.0 + z * 25.0, 0.0, 100.0));
+    }
+
+    public SeatRecommendation recommendSeats(int seatCount, int totalCapacity,
+                                             String preference, String takenCsv) {
+        return seatRecommender.recommendSeats(
+                seatCount, totalCapacity, preference, parseTaken(takenCsv));
+    }
+
+    private Set<Integer> parseTaken(String takenCsv) {
+        Set<Integer> taken = new HashSet<>();
+        if (takenCsv == null || takenCsv.isBlank()) {
+            return taken;
+        }
+        for (String part : takenCsv.split(",")) {
+            try {
+                taken.add(Integer.parseInt(part.trim()));
+            } catch (NumberFormatException ex) {
+                // malformed entries are ignored; the seat set stays deterministic
+            }
+        }
+        return taken;
     }
 
     @Transactional(readOnly = true)

@@ -53,10 +53,23 @@ deployed to AWS, Kubernetes/EKS, on-premises and Docker with horizontal autoscal
   - **Commerce controller groups** — reviews, notifications, trips, live pricing
     (`/api/reviews`, `/api/notifications`, `/api/trips`, `/api/pricing`), plus ops/disruption
     intelligence and audit (`/api/ops`, `/api/audit`)
+  - **Platform config surface** — config-driven multi-domain verticals, explicit capability
+    matrix and no-code product templates, all read-only under `/api/platform/**`
+    (`DomainRegistry`, `CapabilityCatalog`, `ProductCatalogBuilder`);
+    `/api/platform/ingest` is the data-platform streaming read-side (outbox/event-sink
+    style, `EventStreamService`, `V9`)
+  - **Edge / gateway surface** — fixed-window edge rate limiting + gateway-style probes
+    under `/api/edge/**` (`/api/edge/health`, `/api/edge/metrics` JVM snapshot)
+  - **AI capability endpoints** — conversational search with intent detection
+    (`/api/ai/search`), per-role agent tool registry (`/api/ai/tools`), automated trip
+    planner (`/api/trips/plan`), AI seat recommendation and dynamic pricing
+    (`/api/analytics/seat`, `/api/analytics/dynamic-price`)
   - AI assistant + RAG + guardrails
-  - Actuator health/readiness/metrics
-- **Datastores** — MySQL/PostgreSQL (primary), Flyway migrations (`V1..V8` — the V7/V8 add
-  security/messaging and social/PII schemas), H2 (test, MySQL mode).
+  - Observability — Actuator health/readiness/metrics + `TraceService` trace/span context
+    (dependency-free; OTel/Jaeger export is a documented gateway-side option)
+- **Datastores** — MySQL/PostgreSQL (primary), Flyway migrations (`V1..V9` — V7/V8 add
+  security/messaging and social/PII schemas, V9 adds the data-platform `ingest_events`
+  stream), H2 (test, MySQL mode).
 - **Provider integration** — canonical HTTP client, WireMock-stubbed in tests.
 - **Observability** — Spring Boot Actuator + Micrometer, Prometheus/Grafana.
 

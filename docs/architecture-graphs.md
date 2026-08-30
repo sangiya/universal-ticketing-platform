@@ -64,6 +64,12 @@
                             │  │     SMS) omnichannel webhooks  │   │
                             │  │  - Social: family/settings/    │   │
                             │  │     referrals + vouchers/offers│   │
+                            │  │  - Platform config: domains/   │   │
+                            │  │     capabilities/templates     │   │
+                            │  │  - Data-platform ingest/stream │   │
+                            │  │  - Edge probes + rate limits   │   │
+                            │  │  - Observability tracing       │   │
+                            │  │  - AI search/tools/planner     │   │
                             │  └──────────────┬────────────────┘   │
                             └─────────────────┼────────────────────┘
                                               ▼
@@ -84,9 +90,10 @@ Domains exposed to each channel (`docs/api-production.md` for full surface):
   channels.
 - **Admin**: tenants (+ moderation mode, branding), identity review, providers status,
   fraud signals, messaging channels, promotions/vouchers/offers, audit, ops events,
-  disruption.
+  disruption; platform config read (domains / capabilities / product templates).
 - **Ops**: messaging/omnichannel monitoring, `/api/ops/events`, `/api/ops/disruption`,
-  `/api/health/live`, `/actuator/health`.
+  `/api/health/live`, `/actuator/health`, edge probes + rate limits + JVM metrics
+  (`/api/edge/health`, `/api/edge/metrics`), data-platform ingest (`/api/platform/ingest`).
 
 ## 3. Component view — domain modules (C4 Level 3)
 
@@ -105,6 +112,14 @@ Domains exposed to each channel (`docs/api-production.md` for full surface):
   FraudController ───▶  │  FraudDetectionService                             │
   AnalyticsController ─▶│  MlSuiteService (deterministic) + AiDataAnalyst    │
   AssistantController ─▶│  AiAssistantService + RAG + guardrails             │
+  AiSearchController ──▶│  IntentService (conversational search)             │
+  AgentToolsController─▶│  AgentAuthorizationService (per-role tools)        │
+  TripPlannerController▶│  TripPlannerService                                │
+  PlatformConfigCtrl ──▶│  DomainRegistry + CapabilityCatalog +              │
+                        │   ProductCatalogBuilder                            │
+  DataStreamController─▶│  EventStreamService (ingest_events drain)          │
+  EdgeController ──────▶│  EdgeRateLimiter + JVM metrics snapshot            │
+  TraceService ────────▶│  trace/span context (dependency-free)              │
   OpsController ──────▶ │  DisruptionService + EventService + AuditService   │
   SecurityProfileCtrl ─▶│  TwoFactorService (OTP / TOTP / app-key)           │
   IdentityController ─▶ │  IdentityVerificationService + PiiService          │
