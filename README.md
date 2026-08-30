@@ -142,7 +142,7 @@ Regenerate the scope `.docx`/`.pdf` with: `python tools/generate_docs.py`.
 ## Testing
 
 ```bash
-mvn test          # 77 tests across backend + WireMock contract + full flow
+mvn test          # 82 tests across backend + WireMock contract + full flow
 cd frontend && npm run build   # type-checks + produces the PWA
 ```
 

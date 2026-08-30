@@ -44,13 +44,13 @@
 ## v1.1.0 — QA Release (2026-08-30)
 
 ### Test summary
-- **Total automated tests:** 77
+- **Total automated tests:** 82
 - **Failed:** 0
 - **Pass rate:** 100%
 
 ### What was added since v1.0.0
-- Marketplace commerce: promotions, loyalty, reviews, notifications, multi-leg trips, live
-  pricing.
+- Marketplace commerce: **universal product orders** (`POST /api/orders`), promotions,
+  loyalty, reviews, notifications, multi-leg trips, live pricing.
 - Globalization: translation dictionaries + multi-currency FX rates (multi-language /
   multi-currency SaaS).
 - ML / analytics: `MlSuiteService` (forecast, price, recommend, anomaly, trend) +
@@ -60,6 +60,7 @@
 ### Coverage by area (added in v1.1.0)
 | Area | Notes |
 |------|-------|
+| Orders | checkout via `ProductOrderService`/`ProductOrderController`: inventory check + decrement, pricing breakdown, promo, loyalty, notification, outbox event |
 | Analytics / ML | demand forecast, price projection, recommend, trend, anomaly, NL analyst |
 | Promotions | create, list, toggle, apply in pricing |
 | Loyalty | points / tier account |
@@ -87,4 +88,4 @@
 ### Regression risk
 - Low; v1.1.0 adds commerce, globalization and ML/analytics domains without changing
   existing booking, payment, ticket, support, fraud, AI or marketplace behaviour. All prior
-  tests remain green (62 -> 77 total).
+  tests remain green (62 -> 82 total).

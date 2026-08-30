@@ -97,6 +97,9 @@ https://test-api.ticketmesh.example/api
 | GET | `/trips` | My trips. |
 | GET | `/trips/{tripId}/legs` | Legs of a trip. |
 | GET | `/pricing/{productId}?promoCode=&currency=` | Final price with promo + currency conversion. |
+| POST | `/orders` | Place universal marketplace order `{tenantId,productId,quantity,promoCode?}`. |
+| GET | `/orders/mine` | Current user's orders. |
+| GET | `/orders?tenantId=` | Orders for the caller's tenant (tenant-scoped). |
 
 ## Ops (ADMIN) / audit (auth)
 | Method | Path | Description |

@@ -51,13 +51,16 @@
 ## v1.1.0 — Development Release (2026-08-30)
 
 ### Highlights
-- Marketplace commerce: promotions, loyalty points/tiers, reviews, notifications, multi-leg
-  trips and live pricing.
+- Marketplace commerce: **universal product orders** (checkout via `/api/orders`),
+  promotions, loyalty points/tiers, reviews, notifications, multi-leg trips and live pricing.
 - Globalization: per-locale translation dictionaries and multi-currency FX rates.
 - ML / analytics: deterministic ML-style suite (demand forecast, price prediction,
   recommendations, trend report, anomaly scoring) plus a natural-language data analyst.
 
 ### New features
+- **Orders** — universal marketplace checkout `ProductOrderController` + `ProductOrderService`
+  (`POST /api/orders`): inventory validation + decrement, transparent price breakdown,
+  promo redemption, loyalty earning, notification dispatch and outbox event emission.
 - **Promotions** — create/enable/disable promo codes (discount type, value, min purchase,
   validity window, max uses, domain scoping) via `/api/promotions`; applied in pricing.
 - **Loyalty** — `LoyaltyAccount` with points and tier via `/api/loyalty`.
@@ -75,10 +78,10 @@
   via `/api/ops/events` and `/api/audit`.
 
 ### Testing
-- Expanded test suite from **62 to 77** passing tests (unit + integration + WireMock
-  contract).
+- Expanded test suite from **62 to 82** passing tests (unit + integration + WireMock
+  contract + full flow + marketplace order flow).
 - New coverage: analytics/ML, promotions, loyalty, reviews, notifications, trips,
-  globalization and pricing.
+  globalization, pricing and the universal order lifecycle.
 
 ### Known limitations
 - ML outputs are deterministic heuristics over booking/order history (no trained model);

@@ -1,9 +1,11 @@
 # TicketMesh — Blueprint Coverage Matrix (53+ Parts)
 
-> Honest mapping of the `TicketMesh_Full_53_Part_Development_Blueprint` to the current
-> implementation. Legend: **BUILT** = implemented + tested; **PARTIAL** = represented by the
-> modular single-backend design, framework/config or adapter surface, but not a fully
-> separated/standalone implementation; **DOC** = documented but not implemented.
+> Honest mapping of the `TicketMesh_Full_53_Part_Development_Blueprint` (the master
+> blueprint document, included at `docs/spec/TicketMesh_Full_53_Part_Development_Blueprint.pdf`
+> + `.docx`) to the current implementation. Legend: **BUILT** = implemented + tested;
+> **PARTIAL** = represented by the modular single-backend design, framework/config or
+> adapter surface, but not a fully separated/standalone implementation; **DOC** =
+> documented but not implemented.
 
 The delivery decision taken for this build was a **pragmatic modular single-backend**
 approach (the delivery-scope question in the plan was left unanswered, so the modular
@@ -61,7 +63,7 @@ otherwise.
 | 46 | AWS Cloud Architecture | **BUILT** | Terraform ECS Fargate + auto scaling + CloudWatch |
 | 47 | Free / Offline Development | **BUILT** | docker-compose, H2 MySQL-mode, WireMock, seed data |
 | 48 | Frontend Web & Mobile | **BUILT** | React + TypeScript consumer PWA + admin portal (builds clean) |
-| 49 | Testing & Quality | **BUILT** | 77 tests: unit + integration + WireMock contract + full flow; CI gate |
+| 49 | Testing & Quality | **BUILT** | 82 tests: unit + integration + WireMock contract + full flow + marketplace order flow; CI gate |
 | 50 | Observability | **BUILT/PARTIAL** | Actuator health/readiness/metrics + Prometheus exposure; Jaeger/OTel planned |
 | 51 | Repository / Git Format | **BUILT** | standard monorepo-ish layout, docs, workflows |
 | 52 | Project Delivery Roadmap | **DOC** | documented in release notes + SDLC |

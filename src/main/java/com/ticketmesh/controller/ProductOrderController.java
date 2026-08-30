@@ -1,0 +1,73 @@
+package com.ticketmesh.controller;
+
+import com.ticketmesh.exception.NotFoundException;
+import com.ticketmesh.model.ProductOrder;
+import com.ticketmesh.model.User;
+import com.ticketmesh.repository.UserRepository;
+import com.ticketmesh.security.CurrentUser;
+import com.ticketmesh.service.ProductOrderService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * Universal marketplace checkout. Customers order any provider product in any
+ * tenant through the single order engine (validates inventory, prices, applies
+ * promotions, awards loyalty, emits events).
+ */
+@RestController
+@RequestMapping("/api/orders")
+public class ProductOrderController {
+
+    private final ProductOrderService orderService;
+    private final UserRepository userRepository;
+    private final CurrentUser currentUser;
+
+    public ProductOrderController(ProductOrderService orderService,
+                                  UserRepository userRepository,
+                                  CurrentUser currentUser) {
+        this.orderService = orderService;
+        this.userRepository = userRepository;
+        this.currentUser = currentUser;
+    }
+
+    record CreateOrderRequest(
+            @NotNull Long tenantId,
+            @NotNull Long productId,
+            @Min(1) int quantity,
+            String promoCode) {
+    }
+
+    @PostMapping
+    public ResponseEntity<ProductOrder> create(@Valid @RequestBody CreateOrderRequest request) {
+        ProductOrder order = orderService.create(
+                request.tenantId(), request.productId(), request.quantity(), request.promoCode());
+        return ResponseEntity.ok(order);
+    }
+
+    @GetMapping("/mine")
+    public ResponseEntity<List<ProductOrder>> mine() {
+        return ResponseEntity.ok(orderService.mine());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ProductOrder>> byTenant(@RequestParam("tenantId") Long tenantId) {
+        User user = userRepository.findByUsername(currentUser.username())
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
+        Long myTenant = user.getTenantId();
+        if (myTenant != null && myTenant.equals(tenantId)) {
+            return ResponseEntity.ok(orderService.byTenant(tenantId));
+        }
+        throw new NotFoundException("Not authorized for tenant: " + tenantId);
+    }
+}

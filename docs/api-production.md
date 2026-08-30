@@ -118,6 +118,9 @@ All errors return a JSON object with a message and an HTTP status:
 | GET | `/trips` | auth | My trips. |
 | GET | `/trips/{tripId}/legs` | auth | Legs of a trip. |
 | GET | `/pricing/{productId}?promoCode=&currency=` | auth | Final price after promo + currency conversion. |
+| POST | `/orders` | auth | Place a universal marketplace order `{tenantId,productId,quantity,promoCode?}`. |
+| GET | `/orders/mine` | auth | Current user's orders. |
+| GET | `/orders?tenantId=` | auth | Orders for the caller's tenant (tenant-scoped). |
 
 ### Ops & audit (ADMIN / auth)
 | Method | Path | Auth | Description |
