@@ -77,6 +77,9 @@ public class ReferralService {
         Referral referral = referralRepository
                 .findByCodeAndStatus(code.trim().toUpperCase(), Referral.Status.PENDING)
                 .orElseThrow(() -> new NotFoundException("Invalid referral code: " + code));
+        if (referral.getReferrerUserId().equals(inviteeUserId)) {
+            throw new ConflictException("Self-referral is not allowed");
+        }
         if (referral.getStatus() != Referral.Status.PENDING) {
             throw new ConflictException("Referral code has already been used");
         }
