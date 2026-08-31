@@ -1,5 +1,6 @@
 package com.ticketmesh.service;
 
+import com.ticketmesh.dto.CatalogSearchResult;
 import com.ticketmesh.dto.ProductRequest;
 import com.ticketmesh.dto.ProductResponse;
 import com.ticketmesh.exception.ConflictException;
@@ -106,6 +107,22 @@ public class CatalogService {
         return toResponse(productRepository.findById(productId)
                 .orElseThrow(() -> new NotFoundException(
                         "Product not found: " + productId)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CatalogSearchResult> searchText(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        return productRepository.searchEnabledByText(query)
+                .stream()
+                .map(p -> new CatalogSearchResult(
+                        p.getId(),
+                        p.getTitle(),
+                        p.getProvider().getName(),
+                        p.getPrice(),
+                        p.getCurrencyIso()))
+                .toList();
     }
 
     private Provider requireOwnProvider(String providerCode) {

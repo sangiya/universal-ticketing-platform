@@ -1,5 +1,6 @@
 package com.ticketmesh.controller;
 
+import com.ticketmesh.dto.CatalogSearchResult;
 import com.ticketmesh.dto.ProductRequest;
 import com.ticketmesh.dto.ProductResponse;
 import com.ticketmesh.service.CatalogService;
@@ -57,6 +58,12 @@ public class CatalogController {
             @RequestParam("tenantId") Long tenantId,
             @RequestParam(value = "type", required = false) String productType) {
         return ResponseEntity.ok(catalogService.searchCustomer(tenantId, productType));
+    }
+
+    @GetMapping("/catalog/search")
+    public ResponseEntity<List<CatalogSearchResult>> search(
+            @RequestParam(value = "q", required = false) String query) {
+        return ResponseEntity.ok(catalogService.searchText(query));
     }
 
     @GetMapping("/catalog/{id}")

@@ -3,6 +3,8 @@ package com.ticketmesh.repository;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.ProviderProduct.ProductType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,4 +23,13 @@ public interface ProviderProductRepository extends JpaRepository<ProviderProduct
 
     List<ProviderProduct> findByProductTypeAndTenant_IdAndEnabledTrue(
             ProductType productType, Long tenantId);
+
+    @Query("SELECT p FROM ProviderProduct p JOIN FETCH p.provider pr " +
+           "WHERE p.enabled = true " +
+           "AND (LOWER(p.title) LIKE LOWER(CONCAT('%',:q,'%')) " +
+           "     OR LOWER(p.origin) LIKE LOWER(CONCAT('%',:q,'%')) " +
+           "     OR LOWER(p.destination) LIKE LOWER(CONCAT('%',:q,'%')) " +
+           "     OR LOWER(p.description) LIKE LOWER(CONCAT('%',:q,'%')) " +
+           "     OR LOWER(pr.name) LIKE LOWER(CONCAT('%',:q,'%')))")
+    List<ProviderProduct> searchEnabledByText(@Param("q") String query);
 }
