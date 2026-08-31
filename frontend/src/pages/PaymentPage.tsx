@@ -44,7 +44,7 @@ export default function PaymentPage() {
     try {
       const data = await api.get<Order>(`/orders/${orderRef}`);
       setOrder(data);
-      if (data.status === 'CONFIRMED') setPaid(true);
+      if (data.status === 'PAID' || data.status === 'ISSUED' || data.status === 'CONFIRMED') setPaid(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load order');
     } finally {
@@ -66,7 +66,7 @@ export default function PaymentPage() {
     try {
       await api.post<Order>(`/orders/${order.orderRef}/pay`);
       setPaid(true);
-      setOrder((prev) => (prev ? { ...prev, status: 'CONFIRMED' } : prev));
+      setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
     } catch (err) {
       setPayError(err instanceof Error ? err.message : 'Payment failed');
     } finally {
@@ -95,15 +95,15 @@ export default function PaymentPage() {
   if (paid) {
     return (
       <section className="page narrow">
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✔</div>
-          <h1>Payment successful</h1>
+        <div className="card" style={{ textAlign: 'center', padding: '2.5rem', borderTop: `4px solid var(--ok)` }}>
+          <div style={{ width: 72, height: 72, margin: '0 auto 1rem', borderRadius: '50%', background: 'var(--gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '2.4rem' }}>✔</div>
+          <h1 style={{ marginBottom: '0.5rem' }}>Payment successful</h1>
           <p className="muted">
             Your order <strong>{order.orderRef}</strong> for{' '}
             <strong>{order.productTitle}</strong>{' '}
             ({order.currencyIso} {fmt(order.totalAmount)}) is confirmed and paid.
           </p>
-          <div className="row" style={{ justifyContent: 'center', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="row" style={{ justifyContent: 'center', gap: '0.75rem', marginTop: '1.25rem' }}>
             <Link className="btn primary" to="/orders">View my orders</Link>
             <Link className="btn" to="/marketplace">Continue shopping</Link>
           </div>
@@ -119,11 +119,16 @@ export default function PaymentPage() {
         ← Back to marketplace
       </Link>
 
-      <div className="card" style={{ marginBottom: '1.25rem' }}>
-        <h3>{order.productTitle}</h3>
-        <p className="muted">
-          {order.providerName} · {order.productType} · Qty {order.quantity}
-        </p>
+      <div className="card" style={{ marginBottom: '1.25rem', borderTop: '4px solid #6d28d9' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--gradient-soft)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>🎟️</div>
+          <div>
+            <h3 style={{ margin: 0 }}>{order.productTitle}</h3>
+            <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+              {order.providerName} · {order.productType} · Qty {order.quantity}
+            </p>
+          </div>
+        </div>
         <table className="table">
           <tbody>
             <tr><td>Base</td><td className="currency">{order.currencyIso} {fmt(order.baseAmount)}</td></tr>
@@ -142,8 +147,11 @@ export default function PaymentPage() {
         </p>
       </div>
 
-      <div className="card">
-        <h3>Payment details</h3>
+      <div className="card" style={{ borderTop: '4px solid #7c3aed' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--gradient-soft)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>💳</div>
+          <h3 style={{ margin: 0 }}>Payment details</h3>
+        </div>
         <form className="form" onSubmit={(e) => void submit(e)}>
           <div className="field">
             <label htmlFor="cardType">Card type</label>

@@ -35,6 +35,12 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.listMine());
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<BookingResponse>> searchMine(
+            @org.springframework.web.bind.annotation.RequestParam(value = "q", required = false) String q) {
+        return ResponseEntity.ok(bookingService.searchMine(q));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponse> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(bookingService.getMine(id));

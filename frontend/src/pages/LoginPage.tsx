@@ -30,26 +30,38 @@ export default function LoginPage() {
 
   return (
     <section className="page narrow">
-      <h1>Sign in</h1>
-      <form onSubmit={submit} className="stack">
-        <input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          autoComplete="username"
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          autoComplete="current-password"
-        />
-        {error && <p className="error">{error}</p>}
-        <button className="btn primary" type="submit" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+      <div className="card auth-card">
+        <div className="auth-brand">
+          <div className="brand-mark">TM</div>
+          <h1 style={{ margin: '0' }}>Sign in</h1>
+          <p className="muted" style={{ margin: '0.25rem 0 1.25rem' }}>
+            Welcome back to TicketMesh
+          </p>
+        </div>
+        <form onSubmit={submit} className="stack">
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
+            autoComplete="username"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            autoComplete="current-password"
+          />
+          {error && <p className="error">{error}</p>}
+          <button className="btn primary" type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p className="muted" style={{ fontSize: '0.8rem', marginTop: '1rem' }}>
+          Demo accounts: <strong>admin</strong> (Admin), <strong>agent</strong> (Agent),
+          <strong> customer</strong> (Customer)
+        </p>
+      </div>
     </section>
   );
 }

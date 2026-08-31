@@ -86,6 +86,20 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
+    public List<BookingResponse> searchMine(String query) {
+        List<BookingResponse> all = listMine();
+        if (query == null || query.isBlank()) return all;
+        String q = query.toLowerCase().trim();
+        return all.stream()
+                .filter(b -> b.bookingRef().toLowerCase().contains(q)
+                        || (b.passengerName() != null && b.passengerName().toLowerCase().contains(q))
+                        || (b.trainName() != null && b.trainName().toLowerCase().contains(q))
+                        || (b.trainCode() != null && b.trainCode().toLowerCase().contains(q))
+                        || b.status().toLowerCase().contains(q))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public BookingResponse getMine(Long bookingId) {
         Booking booking = loadOwned(bookingId);
         return toResponse(booking);

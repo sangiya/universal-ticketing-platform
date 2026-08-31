@@ -111,11 +111,14 @@ public class CatalogService {
 
     @Transactional(readOnly = true)
     public List<CatalogSearchResult> searchText(String query) {
+        List<ProviderProduct> products;
         if (query == null || query.isBlank()) {
-            return List.of();
+            products = productRepository.findByTenant_IdAndEnabledTrue(1L);
+            if (products.size() > 16) products = products.subList(0, 16);
+        } else {
+            products = productRepository.searchEnabledByText(query);
         }
-        return productRepository.searchEnabledByText(query)
-                .stream()
+        return products.stream()
                 .map(p -> new CatalogSearchResult(
                         p.getId(),
                         p.getTitle(),
@@ -124,7 +127,10 @@ public class CatalogService {
                         p.getPrice(),
                         p.getCurrencyIso(),
                         p.getProvider().getLogoUrl(),
-                        p.getProvider().getThemeColor()))
+                        p.getProvider().getThemeColor(),
+                        p.getProductType().name(),
+                        p.getOrigin(),
+                        p.getDestination()))
                 .toList();
     }
 

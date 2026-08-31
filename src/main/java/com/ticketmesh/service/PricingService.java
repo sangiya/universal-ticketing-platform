@@ -1,5 +1,6 @@
 package com.ticketmesh.service;
 
+import com.ticketmesh.model.LoyaltyAccount;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.Promotion;
 import org.springframework.stereotype.Service;
@@ -18,18 +19,27 @@ public class PricingService {
 
     private final GlobalizationService globalizationService;
     private final PromotionService promotionService;
+    private final LoyaltyService loyaltyService;
 
     public PricingService(GlobalizationService globalizationService,
-                          PromotionService promotionService) {
+                           PromotionService promotionService,
+                           LoyaltyService loyaltyService) {
         this.globalizationService = globalizationService;
         this.promotionService = promotionService;
+        this.loyaltyService = loyaltyService;
     }
+
+    public Breakdown breakdown(ProviderProduct product, String promoCode,
+                               String targetCurrency, Long tenantId) {
+        return breakdown(product, promoCode, targetCurrency, tenantId, null);
+    }
+
 
     /**
      * Build a full price breakdown for a product in a target currency.
      */
     public Breakdown breakdown(ProviderProduct product, String promoCode,
-                               String targetCurrency, Long tenantId) {
+                                   String targetCurrency, Long tenantId, Long userId) {
         BigDecimal base = product.getBasePrice() != null
                 ? product.getBasePrice()
                 : product.getPrice();
@@ -48,21 +58,48 @@ public class PricingService {
         String appliedCode = null;
         String promoName = null;
 
+        // 1. Check Loyalty Tier Benefit (Permanent discount)
+        if (userId != null) {
+            LoyaltyAccount account = loyaltyService.getOrCreate(tenantId, userId);
+            BigDecimal loyaltyBenefit = getLoyaltyDiscount(account.getTier(), subtotal);
+            if (loyaltyBenefit.compareTo(BigDecimal.ZERO) > 0) {
+                discount = loyaltyBenefit;
+                promoName = "Loyalty " + account.getTier() + " Benefit";
+            }
+        }
+
+        // 2. Promo Code (Overwrites or adds to loyalty? Usually, users pick the best one)
         if (promoCode != null && !promoCode.isBlank()) {
             Promotion promotion = promotionService.validate(tenantId, promoCode, subtotal);
             if (promotion != null) {
-                discount = discountAmount(promotion, subtotal);
-                total = subtotal.subtract(discount).setScale(2, RoundingMode.HALF_UP);
-                appliedCode = promotion.getCode();
-                promoName = promotion.getName();
+                BigDecimal promoDiscount = discountAmount(promotion, subtotal);
+                if (promoDiscount.compareTo(discount) > 0) {
+                    discount = promoDiscount;
+                    promoName = promotion.getName();
+                    appliedCode = promotion.getCode();
+                }
             }
         }
+
+        total = subtotal.subtract(discount).setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal converted = globalizationService.convert(
                 total, product.getCurrencyIso(), targetCurrency, tenantId);
         return new Breakdown(base, tax, serviceFee, discount, subtotal, total,
                 product.getCurrencyIso(), targetCurrency, appliedCode, converted, promoName);
     }
+
+    private BigDecimal getLoyaltyDiscount(LoyaltyAccount.Tier tier, BigDecimal subtotal) {
+        BigDecimal rate = BigDecimal.ZERO;
+        switch (tier) {
+            case PLATINUM -> rate = new BigDecimal("0.10"); // 10% off
+            case GOLD -> rate = new BigDecimal("0.05");     // 5% off
+            case SILVER -> rate = new BigDecimal("0.02");    // 2% off
+            default -> rate = BigDecimal.ZERO;
+        }
+        return subtotal.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+    }
+
 
     /**
      * Compute and consume a valid promotion (validation + usage increment) at

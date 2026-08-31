@@ -10,5 +10,8 @@ public record CatalogSearchResult(
         BigDecimal price,
         String currency,
         String logoUrl,
-        String themeColor) {
+        String themeColor,
+        String productType,
+        String origin,
+        String destination) {
 }

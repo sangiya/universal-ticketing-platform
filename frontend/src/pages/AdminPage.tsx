@@ -287,13 +287,13 @@ export default function AdminPage() {
 
   const fmt = (n: number | undefined | null) => n == null ? '—' : Number(n).toFixed(2);
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'providers', label: 'Providers' },
-    { key: 'shops', label: 'Shops' },
-    { key: 'orders', label: 'Orders' },
-    { key: 'users', label: 'Users' },
-    { key: 'tenants', label: 'Tenants' },
+  const tabs: { key: Tab; label: string; icon: string }[] = [
+    { key: 'dashboard', label: 'Overview', icon: '📊' },
+    { key: 'providers', label: 'Providers', icon: '🗄️' },
+    { key: 'shops', label: 'Shops', icon: '🏬' },
+    { key: 'orders', label: 'Orders', icon: '🧾' },
+    { key: 'users', label: 'Users', icon: '👥' },
+    { key: 'tenants', label: 'Tenants', icon: '🏢' },
   ];
 
   return (
@@ -301,42 +301,51 @@ export default function AdminPage() {
       <h1>Admin Portal</h1>
       <p className="muted">Manage providers, shops, orders and platform settings — {username}.</p>
 
-      <div className="admin-tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`admin-tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => { setTab(t.key); setError(null); setMsg(null); }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="portal">
+        <aside className="portal-sidebar">
+          <div className="ps-brand">
+            Admin
+            <small>Platform control center</small>
+          </div>
+          <div className="portal-nav">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                className={tab === t.key ? 'active' : ''}
+                onClick={() => { setTab(t.key); setError(null); setMsg(null); }}
+              >
+                <span className="pico">{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      {error && <p className="error">{error}</p>}
-      {msg && <p className="success">{msg}</p>}
-      {loading && <p className="muted">Loading...</p>}
+        <div className="portal-main">
+          {error && <p className="error">{error}</p>}
+          {msg && <p className="success">{msg}</p>}
+          {loading && <p className="muted">Loading...</p>}
 
-      {!loading && tab === 'dashboard' && stats && (
-        <div>
-          <div className="stats">
-            <div className="stat card"><span className="value">{stats.totalUsers}</span><span className="label">Total users</span></div>
-            <div className="stat card"><span className="value">{stats.customers}</span><span className="label">Customers</span></div>
-            <div className="stat card"><span className="value">{stats.agents}</span><span className="label">Agents</span></div>
-            <div className="stat card"><span className="value">{stats.admins}</span><span className="label">Admins</span></div>
-          </div>
-          <div className="stats">
-            <div className="stat card"><span className="value">{stats.activeTenants}/{stats.totalTenants}</span><span className="label">Active tenants</span></div>
-            <div className="stat card"><span className="value">{stats.activeProviders}/{stats.totalProviders}</span><span className="label">Active providers</span></div>
-            <div className="stat card"><span className="value">{stats.approvedShops}</span><span className="label">Approved shops</span></div>
-            <div className="stat card"><span className="value">{stats.pendingShops}</span><span className="label">Pending shops</span></div>
-          </div>
-          <div className="stats">
-            <div className="stat card"><span className="value">{stats.enabledProducts}/{stats.totalProducts}</span><span className="label">Enabled products</span></div>
-            <div className="stat card"><span className="value">{stats.totalBookings}</span><span className="label">Total bookings</span></div>
-          </div>
-        </div>
-      )}
+          {!loading && tab === 'dashboard' && stats && (
+            <div>
+              <div className="stats">
+                <div className="stat primary"><span className="value">{stats.totalUsers}</span><span className="label">Total users</span></div>
+                <div className="stat"><span className="value">{stats.customers}</span><span className="label">Customers</span></div>
+                <div className="stat warning"><span className="value">{stats.agents}</span><span className="label">Agents</span></div>
+                <div className="stat danger"><span className="value">{stats.admins}</span><span className="label">Admins</span></div>
+              </div>
+              <div className="stats">
+                <div className="stat success"><span className="value">{stats.activeTenants}/{stats.totalTenants}</span><span className="label">Active tenants</span></div>
+                <div className="stat"><span className="value">{stats.activeProviders}/{stats.totalProviders}</span><span className="label">Active providers</span></div>
+                <div className="stat success"><span className="value">{stats.approvedShops}</span><span className="label">Approved shops</span></div>
+                <div className="stat warning"><span className="value">{stats.pendingShops}</span><span className="label">Pending shops</span></div>
+              </div>
+              <div className="stats">
+                <div className="stat"><span className="value">{stats.enabledProducts}/{stats.totalProducts}</span><span className="label">Enabled products</span></div>
+                <div className="stat primary"><span className="value">{stats.totalBookings}</span><span className="label">Total bookings</span></div>
+              </div>
+            </div>
+          )}
 
       {!loading && tab === 'providers' && (
         <div>
@@ -580,6 +589,8 @@ export default function AdminPage() {
           )}
         </div>
       )}
+        </div>
+      </div>
     </section>
   );
 }

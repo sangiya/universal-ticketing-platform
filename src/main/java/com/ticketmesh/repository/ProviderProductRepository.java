@@ -24,6 +24,8 @@ public interface ProviderProductRepository extends JpaRepository<ProviderProduct
     List<ProviderProduct> findByProductTypeAndTenant_IdAndEnabledTrue(
             ProductType productType, Long tenantId);
 
+    long countByEnabledTrue();
+
     @Query("SELECT p FROM ProviderProduct p JOIN FETCH p.provider pr " +
            "WHERE p.enabled = true " +
            "AND (LOWER(p.title) LIKE LOWER(CONCAT('%',:q,'%')) " +

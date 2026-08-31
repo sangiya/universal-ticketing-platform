@@ -3,9 +3,11 @@ package com.ticketmesh.service;
 import com.ticketmesh.exception.ConflictException;
 import com.ticketmesh.exception.NotFoundException;
 import com.ticketmesh.model.Notification;
+import com.ticketmesh.model.OrderAuditLog;
 import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.User;
+import com.ticketmesh.repository.OrderAuditLogRepository;
 import com.ticketmesh.repository.ProductOrderRepository;
 import com.ticketmesh.repository.ProviderProductRepository;
 import com.ticketmesh.repository.UserRepository;
@@ -18,12 +20,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Universal marketplace order flow. A customer buys any provider product
- * through one engine: validates inventory, computes a full price breakdown
- * (base + tax + service fee + promotion), decrements inventory, issues the
- * order, awards loyalty points, sends a notification and emits a domain event.
- */
 @Service
 public class ProductOrderService {
 
@@ -35,17 +31,19 @@ public class ProductOrderService {
     private final LoyaltyService loyaltyService;
     private final NotificationService notificationService;
     private final EventService eventService;
+    private final OrderAuditLogRepository auditRepository;
     private final CurrentUser currentUser;
 
     public ProductOrderService(ProductOrderRepository orderRepository,
-                               ProviderProductRepository productRepository,
-                               UserRepository userRepository,
-                               PricingService pricingService,
-                               PromotionService promotionService,
-                               LoyaltyService loyaltyService,
-                               NotificationService notificationService,
-                               EventService eventService,
-                               CurrentUser currentUser) {
+                                ProviderProductRepository productRepository,
+                                UserRepository userRepository,
+                                PricingService pricingService,
+                                PromotionService promotionService,
+                                LoyaltyService loyaltyService,
+                                NotificationService notificationService,
+                                EventService eventService,
+                                OrderAuditLogRepository auditRepository,
+                                CurrentUser currentUser) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
@@ -54,28 +52,20 @@ public class ProductOrderService {
         this.loyaltyService = loyaltyService;
         this.notificationService = notificationService;
         this.eventService = eventService;
+        this.auditRepository = auditRepository;
         this.currentUser = currentUser;
     }
 
     @Transactional
     public ProductOrder create(Long tenantId, Long productId, int quantity, String promoCode) {
-        return createInternal(tenantId, productId, quantity, promoCode, ProductOrder.Status.CONFIRMED);
+        return createInternal(tenantId, productId, quantity, promoCode, ProductOrder.Status.PAID);
     }
 
-    /**
-     * Two-step checkout step 1: create an order as PENDING, reserving inventory
-     * without taking payment. The customer completes step 2 ({@link #pay}) on the
-     * payment page, which settles the order to CONFIRMED.
-     */
     @Transactional
     public ProductOrder checkout(Long tenantId, Long productId, int quantity, String promoCode) {
         return createInternal(tenantId, productId, quantity, promoCode, ProductOrder.Status.PENDING);
     }
 
-    /**
-     * Two-step checkout step 2: settle a pending order as paid. Only the owning
-     * customer may pay their own order.
-     */
     @Transactional
     public ProductOrder pay(String orderRef) {
         User user = userRepository.findByUsername(currentUser.username())
@@ -89,26 +79,40 @@ public class ProductOrderService {
                 || order.getStatus() == ProductOrder.Status.REFUNDED) {
             throw new ConflictException("Order " + orderRef + " is " + order.getStatus().name().toLowerCase());
         }
-        if (order.getStatus() == ProductOrder.Status.CONFIRMED) {
+        if (order.getStatus() == ProductOrder.Status.PAID || order.getStatus() == ProductOrder.Status.ISSUED) {
             return order;
         }
-        order.setStatus(ProductOrder.Status.CONFIRMED);
+        String oldStatus = order.getStatus().name();
+        order.setStatus(ProductOrder.Status.PAID);
         order.setPaidAt(Instant.now());
         orderRepository.save(order);
-
+        auditRepository.save(new OrderAuditLog(order, oldStatus, "PAID", "Payment verified", currentUser.username()));
         loyaltyService.earn(order.getTenant().getId(), user.getId(),
                 order.getTotalAmount().longValue() / 10);
         notificationService.notify(order.getTenant().getId(), user.getId(),
                 Notification.Channel.IN_APP, "Payment received",
-                "Your order " + order.getOrderRef() + " is now confirmed and paid.");
+                "Your order " + order.getOrderRef() + " is now paid and processing.");
         eventService.emit("PRODUCT_ORDER", order.getOrderRef(), "ORDER_PAID",
                 "{\"orderRef\":\"" + order.getOrderRef() + "\",\"total\":\""
                         + order.getTotalAmount() + "\",\"currency\":\"" + order.getCurrencyIso() + "\"}");
         return order;
     }
 
+    @Transactional
+    public void issueTicket(String orderRef) {
+        ProductOrder order = orderRepository.findByOrderRef(orderRef)
+                .orElseThrow(() -> new NotFoundException("Order not found"));
+        if (order.getStatus() != ProductOrder.Status.PAID) {
+            throw new ConflictException("Order must be PAID before issuance");
+        }
+        String oldStatus = order.getStatus().name();
+        order.setStatus(ProductOrder.Status.ISSUED);
+        orderRepository.save(order);
+        auditRepository.save(new OrderAuditLog(order, oldStatus, "ISSUED", "Ticket generated and delivered", "SYSTEM"));
+    }
+
     private ProductOrder createInternal(Long tenantId, Long productId, int quantity, String promoCode,
-                                        ProductOrder.Status status) {
+                                       ProductOrder.Status status) {
         ProviderProduct product = productRepository.findById(productId)
                 .orElseThrow(() -> new NotFoundException("Product not found: " + productId));
         if (!product.isEnabled() || !product.getTenant().getId().equals(tenantId)) {
@@ -122,21 +126,15 @@ public class ProductOrderService {
                     "Insufficient inventory (requested " + quantity + ", available "
                             + product.getAvailableQuantity() + ")");
         }
-
         User user = userRepository.findByUsername(currentUser.username())
                 .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
-
         PricingService.Breakdown b = pricingService.breakdown(
-                product, promoCode, product.getCurrencyIso(), tenantId);
-
+                product, promoCode, product.getCurrencyIso(), tenantId, user.getId());
         BigDecimal unitPrice = product.getPrice();
-
-        // Consume promotion usage at checkout.
         BigDecimal discount = promoCode != null && !promoCode.isBlank()
                 ? pricingService.redeemAndDiscount(tenantId, promoCode, b.subtotal)
                 : BigDecimal.ZERO;
         BigDecimal total = b.subtotal.subtract(discount);
-
         ProductOrder order = new ProductOrder(
                 generateRef(), product.getTenant(), user, product, quantity, unitPrice,
                 product.getCurrencyIso(), b.base.multiply(BigDecimal.valueOf(quantity)),
@@ -144,22 +142,16 @@ public class ProductOrderService {
                 b.serviceFee.multiply(BigDecimal.valueOf(quantity)),
                 discount, total, promoCode, status);
         orderRepository.save(order);
-
         product.setAvailableQuantity(product.getAvailableQuantity() - quantity);
         productRepository.save(product);
-
-        if (status == ProductOrder.Status.CONFIRMED) {
+        auditRepository.save(new OrderAuditLog(order, "NONE", status.name(), "Order created", currentUser.username()));
+        if (status == ProductOrder.Status.PAID) {
             loyaltyService.earn(tenantId, user.getId(), total.longValue() / 10);
-            notificationService.notify(tenantId, user.getId(), Notification.Channel.IN_APP,
-                    "Order confirmed", "Your order " + order.getOrderRef()
-                            + " for " + product.getTitle() + " is confirmed.");
         }
-
         String eventType = status == ProductOrder.Status.PENDING ? "ORDER_PENDING" : "ORDER_CREATED";
         eventService.emit("PRODUCT_ORDER", order.getOrderRef(), eventType,
                 "{\"orderRef\":\"" + order.getOrderRef() + "\",\"total\":\""
                         + total + "\",\"currency\":\"" + product.getCurrencyIso() + "\"}");
-
         return order;
     }
 

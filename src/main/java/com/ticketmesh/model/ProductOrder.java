@@ -124,7 +124,7 @@ public class ProductOrder {
                         BigDecimal discountAmount, BigDecimal totalAmount, String promoCode) {
         this(orderRef, tenant, user, product, quantity, unitPrice, currencyIso,
                 baseAmount, taxAmount, serviceFee, discountAmount, totalAmount,
-                promoCode, Status.CONFIRMED);
+                promoCode, Status.PAID);
     }
 
     public ProductOrder(String orderRef, Tenant tenant, User user, ProviderProduct product,
@@ -150,7 +150,7 @@ public class ProductOrder {
         this.promoCode = promoCode;
         this.status = status;
         this.createdAt = Instant.now();
-        if (status == Status.CONFIRMED) {
+        if (status == Status.PAID || status == Status.ISSUED) {
             this.paidAt = Instant.now();
         }
     }
@@ -248,7 +248,10 @@ public class ProductOrder {
 
     public enum Status {
         PENDING,
-        CONFIRMED,
+        PAID,
+        ISSUED,
+        USED,
+        EXPIRED,
         CANCELLED,
         REFUNDED
     }

@@ -82,18 +82,6 @@ interface NotificationMsg {
   createdAt: string;
 }
 
-interface BuyState {
-  productId: number;
-  quantity: number;
-  promoCode: string;
-}
-
-interface PurchaseResult {
-  orderRef: string;
-  total: number;
-  currency: string;
-}
-
 const PRODUCT_TYPES = ['TICKET', 'SERVICE', 'SEAT', 'ROUTE', 'ADMISSION', 'PACKAGE'];
 
 export default function MarketplacePage() {
@@ -106,10 +94,11 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [buy, setBuy] = useState<BuyState>({ productId: 0, quantity: 1, promoCode: '' });
+  const [buyProduct, setBuyProduct] = useState<Product | null>(null);
+  const [buyQty, setBuyQty] = useState(1);
+  const [buyPromo, setBuyPromo] = useState('');
   const [pricing, setPricing] = useState<PricingBreakdown | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
-  const [orderResult, setOrderResult] = useState<PurchaseResult | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
 
   const loadCatalog = useCallback(async () => {
@@ -148,37 +137,46 @@ export default function MarketplacePage() {
     if (authenticated) { void loadLoyalty(); void loadNotifications(); void loadOrders(); }
   }, [authenticated]);
 
-  const selectProduct = (productId: number) => {
+  const selectProduct = (product: Product) => {
     if (!authenticated) { navigate('/login'); return; }
-    setBuy({ productId, quantity: 1, promoCode: '' });
-    setPricing(null); setOrderResult(null); setBuyError(null);
+    setBuyProduct(product);
+    setBuyQty(1);
+    setBuyPromo('');
+    setPricing(null);
+    setBuyError(null);
   };
 
   const previewPricing = async () => {
-    if (!buy.productId) { setBuyError('Choose a product first'); return; }
-    setPricingLoading(true); setBuyError(null); setOrderResult(null);
+    if (!buyProduct) return;
+    setPricingLoading(true);
+    setBuyError(null);
     try {
-      const promo = buy.promoCode.trim();
+      const promo = buyPromo.trim();
       const qs = new URLSearchParams();
       if (promo) qs.set('promoCode', promo);
       qs.set('currency', 'LKR');
-      const data = await api.get<PricingBreakdown>(`/pricing/${buy.productId}?${qs.toString()}`);
+      const data = await api.get<PricingBreakdown>(`/pricing/${buyProduct.id}?${qs.toString()}`);
       setPricing(data ?? null);
     } catch (e) {
       setBuyError(e instanceof Error ? e.message : 'Failed to preview pricing');
       setPricing(null);
-    } finally { setPricingLoading(false); }
+    } finally {
+      setPricingLoading(false);
+    }
   };
 
   const placeOrder = async () => {
-    if (!buy.productId) { setBuyError('Choose a product first'); return; }
-    setBuyError(null); setOrderResult(null);
+    if (!buyProduct) return;
+    setBuyError(null);
     try {
-      const promo = buy.promoCode.trim() || undefined;
+      const promo = buyPromo.trim() || undefined;
       const order = await api.post<CheckoutOrder>('/orders/checkout', {
-        tenantId: 1, productId: buy.productId, quantity: buy.quantity,
+        tenantId: 1,
+        productId: buyProduct.id,
+        quantity: buyQty,
         ...(promo ? { promoCode: promo } : {}),
       });
+      setBuyProduct(null);
       navigate(`/checkout/${order.orderRef}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
@@ -190,7 +188,6 @@ export default function MarketplacePage() {
     }
   };
 
-  const selectedProduct = products.find((p) => p.id === buy.productId) ?? null;
   const fmt = (n: number | undefined | null) => n == null ? '—' : Number(n).toFixed(2);
 
   return (
@@ -223,70 +220,108 @@ export default function MarketplacePage() {
 
       <div className="grid">
         {products.map((p) => {
-          const color = p.themeColor || '#0b3b60';
+          const color = p.themeColor || '#4f46e5';
           return (
-            <article className="card provider-card" key={p.id} style={{ borderTop: `3px solid ${color}` }}>
-              <div className="provider-header">
-                {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" />}
-                <span className="tag">{p.productType}</span>
+            <article className="card product-card" key={p.id}>
+              <div
+                className="product-cover"
+                style={{ background: `linear-gradient(135deg, ${color}, #7c3aed)` }}
+              >
+                <div className="cover-tint" />
+                {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, background: 'rgba(255,255,255,.25)' }} />}
+                <span className="product-type">{p.productType}</span>
+                <span className="price-badge">{p.currencyIso} {fmt(p.price)}</span>
               </div>
-              <h3 style={{ color }}>{p.title}</h3>
-              <p className="muted">
-                by <strong style={{ color }}>{p.providerName}</strong>
-                {p.origin && p.destination ? ` \u00B7 ${p.origin} \u2192 ${p.destination}` : ''}
-              </p>
-              {p.eventDate && <p className="muted">{new Date(p.eventDate).toLocaleString()}</p>}
-              <p className="price">{p.currencyIso} {fmt(p.price)}</p>
-              <p className="muted">{p.availableQuantity} available</p>
-              <button className="btn primary" style={{ background: color, borderColor: color }}
-                onClick={() => selectProduct(p.id)} disabled={p.availableQuantity <= 0 || !p.enabled}>
-                {p.availableQuantity > 0 && p.enabled ? 'Buy' : 'Sold out'}
-              </button>
+              <div className="product-body">
+                <h3>{p.title}</h3>
+                <p className="muted" style={{ fontSize: '0.85rem' }}>
+                  by <strong style={{ color }}>{p.providerName}</strong>
+                  {p.origin && p.destination ? ` · ${p.origin} → ${p.destination}` : ''}
+                </p>
+                {p.eventDate && <p className="muted">{new Date(p.eventDate).toLocaleString()}</p>}
+                <p className="muted">{p.availableQuantity} available</p>
+                <button className="btn primary"
+                  onClick={() => selectProduct(p)} disabled={p.availableQuantity <= 0 || !p.enabled}>
+                  {p.availableQuantity > 0 && p.enabled ? 'Buy' : 'Sold out'}
+                </button>
+              </div>
             </article>
           );
         })}
         {!loading && products.length === 0 && <p className="muted">No products in this marketplace yet.</p>}
       </div>
 
-      {buy.productId !== 0 && selectedProduct && (
-        <div className="card" style={{ marginTop: '1.5rem' }}>
-          <h2>Buy: {selectedProduct.title}</h2>
-          <p className="muted">{selectedProduct.description}</p>
-          <form className="form" onSubmit={(e) => { e.preventDefault(); void previewPricing(); }}>
-            <div className="field">
-              <label htmlFor="qty">Quantity (1-5)</label>
-              <input id="qty" type="number" min={1} max={5} value={buy.quantity}
-                onChange={(e) => setBuy({ ...buy, quantity: Number(e.target.value) })} />
+      {buyProduct && (
+        <div className="modal-overlay" onClick={() => setBuyProduct(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Buy: {buyProduct.title}</h3>
+              <p>{buyProduct.description || `${buyProduct.productType} from ${buyProduct.providerName}`}</p>
             </div>
-            <div className="field">
-              <label htmlFor="promo">Promo code (optional)</label>
-              <input id="promo" value={buy.promoCode} placeholder="e.g. WELCOME10"
-                onChange={(e) => setBuy({ ...buy, promoCode: e.target.value })} />
-            </div>
-            <div className="row">
-              <button className="btn" type="submit" disabled={pricingLoading}>{pricingLoading ? 'Loading...' : 'Preview price'}</button>
-              <button className="btn primary" type="button" onClick={() => void placeOrder()} disabled={!pricing}>Proceed to payment</button>
-            </div>
-          </form>
+            <div className="modal-body">
+              <div className="stack">
+                <div className="field">
+                  <label>Quantity (1-5)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={buyQty}
+                    onChange={(e) => setBuyQty(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Promo code (optional)</label>
+                  <input
+                    placeholder="e.g. WELCOME10"
+                    value={buyPromo}
+                    onChange={(e) => setBuyPromo(e.target.value)}
+                  />
+                </div>
+                <button className="btn" onClick={previewPricing} disabled={pricingLoading}>
+                  {pricingLoading ? 'Calculating…' : 'Preview price'}
+                </button>
 
-          {buyError && <p className="error">{buyError}</p>}
-
-          {pricing && (
-            <div className="card" style={{ marginTop: '1rem', background: '#f8fafc' }}>
-              <h3>Price breakdown ({pricing.targetCurrency})</h3>
-              <table className="table">
-                <tbody>
-                  <tr><td>Base</td><td className="currency">{fmt(pricing.base)}</td></tr>
-                  <tr><td>Tax</td><td className="currency">{fmt(pricing.tax)}</td></tr>
-                  <tr><td>Service fee</td><td className="currency">{fmt(pricing.serviceFee)}</td></tr>
-                  <tr><td>Discount</td><td className="currency">-{fmt(pricing.discount)} {pricing.promoName ? <span className="tag">{pricing.promoName}</span> : null}</td></tr>
-                  <tr><td><strong>Total</strong></td><td className="currency"><strong>{fmt(pricing.total)}</strong></td></tr>
-                </tbody>
-              </table>
+                {pricing && (
+                  <div className="card" style={{ padding: '1rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span>Subtotal ({buyQty}x)</span>
+                      <span>{pricing.currencyIso} {fmt(pricing.subtotal * buyQty)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span>Tax</span>
+                      <span>{pricing.currencyIso} {fmt(pricing.tax * buyQty)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span>Service Fee</span>
+                      <span>{pricing.currencyIso} {fmt(pricing.serviceFee * buyQty)}</span>
+                    </div>
+                    {pricing.discount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--ok)' }}>
+                        <span>Discount ({pricing.promoName})</span>
+                        <span>-{pricing.currencyIso} {fmt(pricing.discount * buyQty)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+                      <span>Total</span>
+                      <span>{pricing.currencyIso} {fmt(pricing.total * buyQty)}</span>
+                    </div>
+                  </div>
+                )}
+                {buyError && <p className="error">{buyError}</p>}
+              </div>
             </div>
-          )}
-
-          {orderResult && <p className="success">Order {orderResult.orderRef} placed for {orderResult.currency} {fmt(orderResult.total)}.</p>}
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setBuyProduct(null)}>Cancel</button>
+              <button
+                className="btn primary"
+                disabled={!pricing}
+                onClick={placeOrder}
+              >
+                Proceed to payment
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/referrals/validate").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tenant/*/branding").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health/**").permitAll()
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/api/bookings/**").authenticated()

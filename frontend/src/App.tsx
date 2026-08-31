@@ -71,7 +71,8 @@ export default function App() {
         <div className="auth">
           {authenticated ? (
             <>
-              <span className="user">{username}{role ? ` · ${role.toLowerCase()}` : ''}</span>
+              <span className="user">{username}</span>
+              {role && <span className={`badge role-${role.toLowerCase()}`}>{role.toLowerCase()}</span>}
               <button className="link" onClick={logout}>
                 Sign out
               </button>
