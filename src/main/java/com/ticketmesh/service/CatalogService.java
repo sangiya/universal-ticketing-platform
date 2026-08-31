@@ -120,8 +120,11 @@ public class CatalogService {
                         p.getId(),
                         p.getTitle(),
                         p.getProvider().getName(),
+                        p.getProvider().getCode(),
                         p.getPrice(),
-                        p.getCurrencyIso()))
+                        p.getCurrencyIso(),
+                        p.getProvider().getLogoUrl(),
+                        p.getProvider().getThemeColor()))
                 .toList();
     }
 
@@ -179,9 +182,13 @@ public class CatalogService {
     private ProductResponse toResponse(ProviderProduct p) {
         return new ProductResponse(
                 p.getId(), p.getProvider().getId(), p.getProvider().getName(),
+                p.getProvider().getCode(),
                 p.getTenant().getId(), p.getProductType().name(), p.getTitle(),
                 p.getOrigin(), p.getDestination(), p.getEventDate(), p.getPrice(),
                 p.getCurrencyIso(), p.getAvailableQuantity(), p.getDescription(),
-                p.getAttributes(), p.isEnabled(), p.getCreatedAt());
+                p.getAttributes(), p.isEnabled(),
+                p.getProvider().getLogoUrl(), p.getProvider().getThemeColor(),
+                p.getProvider().getTagline(),
+                p.getCreatedAt());
     }
 }

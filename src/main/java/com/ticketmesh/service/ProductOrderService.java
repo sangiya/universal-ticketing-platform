@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Universal marketplace order flow. A customer buys any provider product
@@ -57,6 +59,56 @@ public class ProductOrderService {
 
     @Transactional
     public ProductOrder create(Long tenantId, Long productId, int quantity, String promoCode) {
+        return createInternal(tenantId, productId, quantity, promoCode, ProductOrder.Status.CONFIRMED);
+    }
+
+    /**
+     * Two-step checkout step 1: create an order as PENDING, reserving inventory
+     * without taking payment. The customer completes step 2 ({@link #pay}) on the
+     * payment page, which settles the order to CONFIRMED.
+     */
+    @Transactional
+    public ProductOrder checkout(Long tenantId, Long productId, int quantity, String promoCode) {
+        return createInternal(tenantId, productId, quantity, promoCode, ProductOrder.Status.PENDING);
+    }
+
+    /**
+     * Two-step checkout step 2: settle a pending order as paid. Only the owning
+     * customer may pay their own order.
+     */
+    @Transactional
+    public ProductOrder pay(String orderRef) {
+        User user = userRepository.findByUsername(currentUser.username())
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
+        ProductOrder order = orderRepository.findByOrderRef(orderRef)
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderRef));
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new ConflictException("Order does not belong to the current user");
+        }
+        if (order.getStatus() == ProductOrder.Status.CANCELLED
+                || order.getStatus() == ProductOrder.Status.REFUNDED) {
+            throw new ConflictException("Order " + orderRef + " is " + order.getStatus().name().toLowerCase());
+        }
+        if (order.getStatus() == ProductOrder.Status.CONFIRMED) {
+            return order;
+        }
+        order.setStatus(ProductOrder.Status.CONFIRMED);
+        order.setPaidAt(Instant.now());
+        orderRepository.save(order);
+
+        loyaltyService.earn(order.getTenant().getId(), user.getId(),
+                order.getTotalAmount().longValue() / 10);
+        notificationService.notify(order.getTenant().getId(), user.getId(),
+                Notification.Channel.IN_APP, "Payment received",
+                "Your order " + order.getOrderRef() + " is now confirmed and paid.");
+        eventService.emit("PRODUCT_ORDER", order.getOrderRef(), "ORDER_PAID",
+                "{\"orderRef\":\"" + order.getOrderRef() + "\",\"total\":\""
+                        + order.getTotalAmount() + "\",\"currency\":\"" + order.getCurrencyIso() + "\"}");
+        return order;
+    }
+
+    private ProductOrder createInternal(Long tenantId, Long productId, int quantity, String promoCode,
+                                        ProductOrder.Status status) {
         ProviderProduct product = productRepository.findById(productId)
                 .orElseThrow(() -> new NotFoundException("Product not found: " + productId));
         if (!product.isEnabled() || !product.getTenant().getId().equals(tenantId)) {
@@ -90,19 +142,21 @@ public class ProductOrderService {
                 product.getCurrencyIso(), b.base.multiply(BigDecimal.valueOf(quantity)),
                 b.tax.multiply(BigDecimal.valueOf(quantity)),
                 b.serviceFee.multiply(BigDecimal.valueOf(quantity)),
-                discount, total, promoCode);
+                discount, total, promoCode, status);
         orderRepository.save(order);
 
         product.setAvailableQuantity(product.getAvailableQuantity() - quantity);
         productRepository.save(product);
 
-        loyaltyService.earn(tenantId, user.getId(), total.longValue() / 10);
+        if (status == ProductOrder.Status.CONFIRMED) {
+            loyaltyService.earn(tenantId, user.getId(), total.longValue() / 10);
+            notificationService.notify(tenantId, user.getId(), Notification.Channel.IN_APP,
+                    "Order confirmed", "Your order " + order.getOrderRef()
+                            + " for " + product.getTitle() + " is confirmed.");
+        }
 
-        notificationService.notify(tenantId, user.getId(), Notification.Channel.IN_APP,
-                "Order confirmed", "Your order " + order.getOrderRef()
-                        + " for " + product.getTitle() + " is confirmed.");
-
-        eventService.emit("PRODUCT_ORDER", order.getOrderRef(), "ORDER_CREATED",
+        String eventType = status == ProductOrder.Status.PENDING ? "ORDER_PENDING" : "ORDER_CREATED";
+        eventService.emit("PRODUCT_ORDER", order.getOrderRef(), eventType,
                 "{\"orderRef\":\"" + order.getOrderRef() + "\",\"total\":\""
                         + total + "\",\"currency\":\"" + product.getCurrencyIso() + "\"}");
 
@@ -114,6 +168,14 @@ public class ProductOrderService {
         User user = userRepository.findByUsername(currentUser.username())
                 .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
         return orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ProductOrder> findMine(String orderRef) {
+        User user = userRepository.findByUsername(currentUser.username())
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
+        return orderRepository.findByOrderRef(orderRef)
+                .filter(o -> o.getUser().getId().equals(user.getId()));
     }
 
     @Transactional(readOnly = true)

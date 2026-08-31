@@ -1,12 +1,17 @@
 package com.ticketmesh.service;
 
 import com.ticketmesh.dto.AdminStatsResponse;
+import com.ticketmesh.dto.OrderSummary;
+import com.ticketmesh.dto.ShopResponse;
+import com.ticketmesh.dto.UserSummary;
 import com.ticketmesh.model.AgentShop;
+import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.model.Provider;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.User;
 import com.ticketmesh.repository.AgentShopRepository;
 import com.ticketmesh.repository.BookingRepository;
+import com.ticketmesh.repository.ProductOrderRepository;
 import com.ticketmesh.repository.ProviderProductRepository;
 import com.ticketmesh.repository.ProviderRepository;
 import com.ticketmesh.repository.TenantRepository;
@@ -28,19 +33,22 @@ public class AdminService {
     private final AgentShopRepository shopRepository;
     private final ProviderProductRepository productRepository;
     private final BookingRepository bookingRepository;
+    private final ProductOrderRepository orderRepository;
 
     public AdminService(UserRepository userRepository,
                         TenantRepository tenantRepository,
                         ProviderRepository providerRepository,
                         AgentShopRepository shopRepository,
                         ProviderProductRepository productRepository,
-                        BookingRepository bookingRepository) {
+                        BookingRepository bookingRepository,
+                        ProductOrderRepository orderRepository) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.providerRepository = providerRepository;
         this.shopRepository = shopRepository;
         this.productRepository = productRepository;
         this.bookingRepository = bookingRepository;
+        this.orderRepository = orderRepository;
     }
 
     @Transactional(readOnly = true)
@@ -76,5 +84,26 @@ public class AdminService {
     @Transactional(readOnly = true)
     public long countBookings() {
         return bookingRepository.count();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSummary> listUsers() {
+        return userRepository.findAll().stream()
+                .map(u -> new UserSummary(
+                        u.getId(), u.getUsername(), u.getFullName(), u.getEmail(),
+                        u.getRole().name(), u.getStatus().name(),
+                        u.getTenantId(), u.getCreatedAt()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderSummary> listOrders() {
+        return orderRepository.findAll().stream()
+                .map(o -> new OrderSummary(
+                        o.getId(), o.getOrderRef(), o.getProviderName(),
+                        o.getProductTitle(), o.getProductType(), o.getQuantity(),
+                        o.getUnitPrice(), o.getCurrencyIso(), o.getTotalAmount(),
+                        o.getStatus().name(), o.getCreatedAt()))
+                .toList();
     }
 }

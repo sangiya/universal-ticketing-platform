@@ -1,5 +1,6 @@
 package com.ticketmesh.service;
 
+import com.ticketmesh.dto.ProviderBrandingRequest;
 import com.ticketmesh.dto.ProviderConnectRequest;
 import com.ticketmesh.dto.ProviderResponse;
 import com.ticketmesh.exception.ConflictException;
@@ -16,6 +17,7 @@ import com.ticketmesh.security.CurrentUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -81,6 +83,45 @@ public class ProviderService {
         return toResponse(provider);
     }
 
+    @Transactional
+    public ProviderResponse updateBranding(String providerCode, ProviderBrandingRequest request) {
+        Provider provider = requireOwnProvider(providerCode);
+        if (request.getLogoUrl() != null) provider.setLogoUrl(request.getLogoUrl());
+        if (request.getThemeColor() != null) provider.setThemeColor(request.getThemeColor());
+        if (request.getSecondaryColor() != null) provider.setSecondaryColor(request.getSecondaryColor());
+        if (request.getTagline() != null) provider.setTagline(request.getTagline());
+        if (request.getBannerUrl() != null) provider.setBannerUrl(request.getBannerUrl());
+        provider.setUpdatedAt(Instant.now());
+        providerRepository.save(provider);
+        return toResponse(provider);
+    }
+
+    @Transactional
+    public ProviderResponse adminUpdateBranding(Long providerId, ProviderBrandingRequest request) {
+        Provider provider = requireProvider(providerId);
+        if (request.getLogoUrl() != null) provider.setLogoUrl(request.getLogoUrl());
+        if (request.getThemeColor() != null) provider.setThemeColor(request.getThemeColor());
+        if (request.getSecondaryColor() != null) provider.setSecondaryColor(request.getSecondaryColor());
+        if (request.getTagline() != null) provider.setTagline(request.getTagline());
+        if (request.getBannerUrl() != null) provider.setBannerUrl(request.getBannerUrl());
+        provider.setUpdatedAt(Instant.now());
+        providerRepository.save(provider);
+        return toResponse(provider);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProviderResponse> listAllProviders() {
+        return providerRepository.findAll()
+                .stream().map(this::toResponse).toList();
+    }
+
+    private Provider requireOwnProvider(String providerCode) {
+        AgentShop shop = requireMyApprovedShop();
+        return providerRepository.findByCode(providerCode)
+                .filter(p -> p.getShop().getId().equals(shop.getId()))
+                .orElseThrow(() -> new NotFoundException("Provider not found: " + providerCode));
+    }
+
     private Provider requireProvider(Long providerId) {
         return providerRepository.findById(providerId)
                 .orElseThrow(() -> new NotFoundException("Provider not found: " + providerId));
@@ -122,6 +163,9 @@ public class ProviderService {
                 p.getShop().getId(), p.getTenant().getId(),
                 p.getCountryIso(), p.getCurrencyIso(), p.getTimezone(),
                 p.getApiEndpoint(), p.getAuthMode(), p.getVertical().name(),
-                p.getCapabilities(), p.getStatus().name(), p.getCreatedAt());
+                p.getCapabilities(), p.getStatus().name(),
+                p.getLogoUrl(), p.getThemeColor(), p.getSecondaryColor(),
+                p.getTagline(), p.getBannerUrl(),
+                p.getCreatedAt());
     }
 }

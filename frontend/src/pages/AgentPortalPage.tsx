@@ -31,6 +31,11 @@ interface Provider {
   vertical: string;
   capabilities: string | null;
   status: string;
+  logoUrl: string | null;
+  themeColor: string | null;
+  secondaryColor: string | null;
+  tagline: string | null;
+  bannerUrl: string | null;
   createdAt: string;
 }
 
@@ -89,7 +94,7 @@ const PRODUCT_TYPES = ['TICKET', 'SERVICE', 'SEAT', 'ROUTE', 'ADMISSION', 'PACKA
 
 const AUTH_MODES = ['API_KEY', 'OAUTH2', 'BASIC'];
 
-const VERTICALS = ['TRAIN', 'BUS', 'MOVIE', 'FLIGHT', 'HOTEL', 'PACKAGE'];
+const VERTICALS = ['BUS', 'TRAIN', 'MOVIE', 'EVENT', 'SPORTS', 'FLIGHT', 'FERRY', 'ATTRACTION', 'OTHER'];
 
 const EMPTY_PROVIDER: ProviderForm = {
   code: '',
@@ -145,6 +150,13 @@ export default function AgentPortalPage() {
   const [saving, setSaving] = useState(false);
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
+
+  const [brandingTarget, setBrandingTarget] = useState<string | null>(null);
+  const [brandingForm, setBrandingForm] = useState({
+    logoUrl: '', themeColor: '#0b3b60', secondaryColor: '', tagline: '', bannerUrl: '',
+  });
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [brandingMsg, setBrandingMsg] = useState<string | null>(null);
 
   const loadShop = useCallback(async () => {
     setShopLoading(true);
@@ -247,6 +259,41 @@ export default function AgentPortalPage() {
     setEditingId(null);
     setProductMessage(null);
     setProductError(null);
+  };
+
+  const openBrandingEditor = (p: Provider) => {
+    setBrandingTarget(p.code);
+    setBrandingForm({
+      logoUrl: p.logoUrl ?? '',
+      themeColor: p.themeColor ?? '#0b3b60',
+      secondaryColor: p.secondaryColor ?? '',
+      tagline: p.tagline ?? '',
+      bannerUrl: p.bannerUrl ?? '',
+    });
+    setBrandingMsg(null);
+  };
+
+  const saveBranding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!brandingTarget) return;
+    setSavingBranding(true);
+    setBrandingMsg(null);
+    try {
+      const body: Record<string, string> = {};
+      if (brandingForm.logoUrl) body.logoUrl = brandingForm.logoUrl;
+      if (brandingForm.themeColor) body.themeColor = brandingForm.themeColor;
+      if (brandingForm.secondaryColor) body.secondaryColor = brandingForm.secondaryColor;
+      if (brandingForm.tagline) body.tagline = brandingForm.tagline;
+      if (brandingForm.bannerUrl) body.bannerUrl = brandingForm.bannerUrl;
+      await api.put<unknown>(`/agent/providers/${brandingTarget}/branding`, body);
+      setBrandingMsg('Branding saved.');
+      setBrandingTarget(null);
+      void loadProviders();
+    } catch (err) {
+      setBrandingMsg(err instanceof Error ? err.message : 'Failed to save branding');
+    } finally {
+      setSavingBranding(false);
+    }
   };
 
   const toggleProduct = async (id: number, enabled: boolean) => {
@@ -572,30 +619,107 @@ export default function AgentPortalPage() {
                 <th>Code</th>
                 <th>Name</th>
                 <th>Vertical</th>
+                <th>Branding</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {providers.map((p) => (
                 <tr key={p.id}>
+                  <td><span className="tag">{p.code}</span></td>
                   <td>
-                    <span className="tag">{p.code}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" />}
+                      <div>
+                        <strong>{p.name}</strong>
+                        {p.tagline && <div className="muted" style={{ fontSize: '0.8rem' }}>{p.tagline}</div>}
+                      </div>
+                    </div>
                   </td>
-                  <td>{p.name}</td>
                   <td>{p.vertical}</td>
                   <td>
-                    <span
-                      className={`badge ${
-                        p.status === 'ACTIVE' ? 'confirmed' : 'pending'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
+                    {p.themeColor && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span style={{ display: 'inline-block', width: 16, height: 16, borderRadius: 4, background: p.themeColor }} />
+                        <span className="muted" style={{ fontSize: '0.8rem' }}>{p.themeColor}</span>
+                      </span>
+                    )}
+                    {!p.themeColor && <span className="muted">Not set</span>}
+                  </td>
+                  <td>
+                    <span className={`badge ${p.status === 'ACTIVE' ? 'confirmed' : 'pending'}`}>{p.status}</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {brandingMsg && <p className={brandingMsg.includes('saved') ? 'success' : 'error'}>{brandingMsg}</p>}
+
+          <h3 style={{ marginTop: '1.5rem' }}>Customize provider branding</h3>
+          <p className="muted">Set logo, theme color and tagline for each of your providers. This is how customers see you in the marketplace.</p>
+          <div className="row" style={{ flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+            {providers.map((p) => (
+              <button key={p.code} className={`btn ${brandingTarget === p.code ? 'primary' : ''}`}
+                onClick={() => openBrandingEditor(p)}>
+                {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" style={{ marginRight: 4 }} />}
+                {p.name}
+              </button>
+            ))}
+          </div>
+
+          {brandingTarget && (
+            <div className="card">
+              <h3>Edit branding: {brandingTarget}</h3>
+              <form className="form" onSubmit={(e) => void saveBranding(e)}>
+                <div className="row">
+                  <div className="field">
+                    <label htmlFor="agLogo">Logo URL</label>
+                    <input id="agLogo" value={brandingForm.logoUrl} placeholder="https://example.com/logo.png"
+                      onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="agBanner">Banner URL</label>
+                    <input id="agBanner" value={brandingForm.bannerUrl} placeholder="https://example.com/banner.jpg"
+                      onChange={(e) => setBrandingForm({ ...brandingForm, bannerUrl: e.target.value })} />
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="field">
+                    <label htmlFor="agTheme">Theme color</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input id="agTheme" type="color" value={brandingForm.themeColor}
+                        onChange={(e) => setBrandingForm({ ...brandingForm, themeColor: e.target.value })}
+                        style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }} />
+                      <input value={brandingForm.themeColor} style={{ flex: 1 }}
+                        onChange={(e) => setBrandingForm({ ...brandingForm, themeColor: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="agSecondary">Secondary color</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input id="agSecondary" type="color" value={brandingForm.secondaryColor || '#2e86de'}
+                        onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
+                        style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }} />
+                      <input value={brandingForm.secondaryColor} style={{ flex: 1 }}
+                        onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="agTagline">Tagline</label>
+                  <input id="agTagline" value={brandingForm.tagline} placeholder="Your journey starts here"
+                    onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })} />
+                </div>
+                <div className="row">
+                  <button className="btn primary" type="submit" disabled={savingBranding}>
+                    {savingBranding ? 'Saving...' : 'Save branding'}
+                  </button>
+                  <button className="btn" type="button" onClick={() => setBrandingTarget(null)}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
         </>
       )}
 

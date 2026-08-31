@@ -84,6 +84,26 @@ public class Provider {
     @Column(nullable = false, length = 20)
     private Status status;
 
+    @Size(max = 500)
+    @Column(length = 500)
+    private String logoUrl;
+
+    @Size(max = 16)
+    @Column(length = 16)
+    private String themeColor;
+
+    @Size(max = 16)
+    @Column(length = 16)
+    private String secondaryColor;
+
+    @Size(max = 255)
+    @Column(length = 255)
+    private String tagline;
+
+    @Size(max = 500)
+    @Column(length = 500)
+    private String bannerUrl;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -198,8 +218,52 @@ public class Provider {
         return createdAt;
     }
 
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
+    }
+
+    public String getThemeColor() {
+        return themeColor;
+    }
+
+    public void setThemeColor(String themeColor) {
+        this.themeColor = themeColor;
+    }
+
+    public String getSecondaryColor() {
+        return secondaryColor;
+    }
+
+    public void setSecondaryColor(String secondaryColor) {
+        this.secondaryColor = secondaryColor;
+    }
+
+    public String getTagline() {
+        return tagline;
+    }
+
+    public void setTagline(String tagline) {
+        this.tagline = tagline;
+    }
+
+    public String getBannerUrl() {
+        return bannerUrl;
+    }
+
+    public void setBannerUrl(String bannerUrl) {
+        this.bannerUrl = bannerUrl;
+    }
+
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public enum ProviderVertical {

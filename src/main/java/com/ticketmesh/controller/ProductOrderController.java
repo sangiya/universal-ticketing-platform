@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,6 +54,25 @@ public class ProductOrderController {
         ProductOrder order = orderService.create(
                 request.tenantId(), request.productId(), request.quantity(), request.promoCode());
         return ResponseEntity.ok(order);
+    }
+
+    @PostMapping("/checkout")
+    public ResponseEntity<ProductOrder> checkout(@Valid @RequestBody CreateOrderRequest request) {
+        ProductOrder order = orderService.checkout(
+                request.tenantId(), request.productId(), request.quantity(), request.promoCode());
+        return ResponseEntity.ok(order);
+    }
+
+    @PostMapping("/{orderRef}/pay")
+    public ResponseEntity<ProductOrder> pay(@PathVariable("orderRef") String orderRef) {
+        return ResponseEntity.ok(orderService.pay(orderRef));
+    }
+
+    @GetMapping("/{orderRef}")
+    public ResponseEntity<ProductOrder> mine(@PathVariable("orderRef") String orderRef) {
+        return orderService.findMine(orderRef)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderRef));
     }
 
     @GetMapping("/mine")

@@ -1,5 +1,6 @@
 package com.ticketmesh.controller;
 
+import com.ticketmesh.dto.ProviderBrandingRequest;
 import com.ticketmesh.dto.ProviderConnectRequest;
 import com.ticketmesh.dto.ProviderResponse;
 import com.ticketmesh.model.Provider;
@@ -41,8 +42,21 @@ public class ProviderController {
         return ResponseEntity.ok(providerService.mine());
     }
 
+    @PutMapping("/agent/providers/{code}/branding")
+    public ResponseEntity<ProviderResponse> updateMyBranding(
+            @PathVariable("code") String code,
+            @Valid @RequestBody ProviderBrandingRequest request) {
+        return ResponseEntity.ok(providerService.updateBranding(code, request));
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/providers")
+    public ResponseEntity<List<ProviderResponse>> listAllProviders() {
+        return ResponseEntity.ok(providerService.listAllProviders());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/providers/status")
     public ResponseEntity<List<ProviderResponse>> listByStatus(
             @RequestParam("status") Provider.Status status) {
         return ResponseEntity.ok(providerService.listAll(status));
@@ -54,5 +68,13 @@ public class ProviderController {
             @PathVariable("id") Long id,
             @RequestParam("status") Provider.Status status) {
         return ResponseEntity.ok(providerService.setStatus(id, status));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/providers/{id}/branding")
+    public ResponseEntity<ProviderResponse> adminUpdateBranding(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ProviderBrandingRequest request) {
+        return ResponseEntity.ok(providerService.adminUpdateBranding(id, request));
     }
 }

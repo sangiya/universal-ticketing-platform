@@ -16,5 +16,10 @@ public record ProviderResponse(
         String vertical,
         String capabilities,
         String status,
+        String logoUrl,
+        String themeColor,
+        String secondaryColor,
+        String tagline,
+        String bannerUrl,
         Instant createdAt) {
 }

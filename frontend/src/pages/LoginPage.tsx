@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApi } from '../context/ApiContext';
+import { useApi, type Role } from '../context/ApiContext';
 
 export default function LoginPage() {
   const { api, login } = useApi();
@@ -15,12 +15,12 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ token: string }>('/auth/login', {
+      const res = await api.post<{ token: string; username: string; role: Role }>('/auth/login', {
         username,
         password,
       });
-      login(res.token, username);
-      navigate('/');
+      login(res.token, res.username, res.role);
+      navigate(roleHome(res.role));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -52,4 +52,17 @@ export default function LoginPage() {
       </form>
     </section>
   );
+}
+
+export function roleHome(role: Role | null): string {
+  switch (role) {
+    case 'ADMIN':
+      return '/admin';
+    case 'AGENT':
+      return '/agent';
+    case 'CUSTOMER':
+      return '/marketplace';
+    default:
+      return '/';
+  }
 }

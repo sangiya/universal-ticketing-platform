@@ -122,6 +122,16 @@ public class ProductOrder {
                         int quantity, BigDecimal unitPrice, String currencyIso,
                         BigDecimal baseAmount, BigDecimal taxAmount, BigDecimal serviceFee,
                         BigDecimal discountAmount, BigDecimal totalAmount, String promoCode) {
+        this(orderRef, tenant, user, product, quantity, unitPrice, currencyIso,
+                baseAmount, taxAmount, serviceFee, discountAmount, totalAmount,
+                promoCode, Status.CONFIRMED);
+    }
+
+    public ProductOrder(String orderRef, Tenant tenant, User user, ProviderProduct product,
+                        int quantity, BigDecimal unitPrice, String currencyIso,
+                        BigDecimal baseAmount, BigDecimal taxAmount, BigDecimal serviceFee,
+                        BigDecimal discountAmount, BigDecimal totalAmount, String promoCode,
+                        Status status) {
         this.orderRef = orderRef;
         this.tenant = tenant;
         this.user = user;
@@ -138,9 +148,11 @@ public class ProductOrder {
         this.discountAmount = discountAmount;
         this.totalAmount = totalAmount;
         this.promoCode = promoCode;
-        this.status = Status.CONFIRMED;
+        this.status = status;
         this.createdAt = Instant.now();
-        this.paidAt = Instant.now();
+        if (status == Status.CONFIRMED) {
+            this.paidAt = Instant.now();
+        }
     }
 
     public Long getId() {
@@ -224,6 +236,10 @@ public class ProductOrder {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public void setPaidAt(Instant paidAt) {
+        this.paidAt = paidAt;
     }
 
     public Instant getPaidAt() {

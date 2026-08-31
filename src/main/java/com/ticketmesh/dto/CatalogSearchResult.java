@@ -6,6 +6,9 @@ public record CatalogSearchResult(
         Long id,
         String title,
         String providerName,
+        String providerCode,
         BigDecimal price,
-        String currency) {
+        String currency,
+        String logoUrl,
+        String themeColor) {
 }

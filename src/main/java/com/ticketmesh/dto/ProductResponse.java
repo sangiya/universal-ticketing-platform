@@ -8,6 +8,7 @@ public record ProductResponse(
         Long id,
         Long providerId,
         String providerName,
+        String providerCode,
         Long tenantId,
         String productType,
         String title,
@@ -20,5 +21,8 @@ public record ProductResponse(
         String description,
         String attributes,
         boolean enabled,
+        String logoUrl,
+        String themeColor,
+        String tagline,
         Instant createdAt) {
 }

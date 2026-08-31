@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApi } from '../context/ApiContext';
+import { useApi, type Role } from '../context/ApiContext';
+import { roleHome } from './LoginPage';
 
 export default function RegisterPage() {
   const { api, login } = useApi();
@@ -9,6 +10,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Role>('CUSTOMER');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -17,14 +19,15 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ token: string }>('/auth/register', {
+      const res = await api.post<{ token: string; username: string; role: Role }>('/auth/register', {
         username,
         password,
         fullName,
         email,
+        role,
       });
-      login(res.token, username);
-      navigate('/');
+      login(res.token, res.username, res.role);
+      navigate(roleHome(res.role));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -61,6 +64,13 @@ export default function RegisterPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
         />
+        <label className="field">
+          <span className="label">I am a</span>
+          <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            <option value="CUSTOMER">Customer (I want to buy)</option>
+            <option value="AGENT">Agent / Seller (I want to sell)</option>
+          </select>
+        </label>
         {error && <p className="error">{error}</p>}
         <button className="btn primary" type="submit" disabled={busy}>
           {busy ? 'Creating…' : 'Create account'}

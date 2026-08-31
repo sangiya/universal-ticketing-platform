@@ -1,7 +1,9 @@
 package com.ticketmesh.controller;
 
 import com.ticketmesh.dto.AdminStatsResponse;
+import com.ticketmesh.dto.OrderSummary;
 import com.ticketmesh.dto.ShopResponse;
+import com.ticketmesh.dto.UserSummary;
 import com.ticketmesh.model.AgentShop;
 import com.ticketmesh.service.AdminService;
 import com.ticketmesh.service.AgentOnboardingService;
@@ -46,5 +48,15 @@ public class AdminController {
             @PathVariable("id") Long id,
             @RequestParam("action") AgentShop.Status action) {
         return ResponseEntity.ok(onboardingService.approve(id, action));
+    }
+
+    @GetMapping("/users")
+    public ResponseEntity<List<UserSummary>> listUsers() {
+        return ResponseEntity.ok(adminService.listUsers());
+    }
+
+    @GetMapping("/orders")
+    public ResponseEntity<List<OrderSummary>> listOrders() {
+        return ResponseEntity.ok(adminService.listOrders());
     }
 }
