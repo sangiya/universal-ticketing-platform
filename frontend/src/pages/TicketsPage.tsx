@@ -17,6 +17,7 @@ export default function TicketsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewTicket, setViewTicket] = useState<Booking | null>(null);
 
   const load = useCallback(async (q = '') => {
     try {
@@ -116,12 +117,69 @@ export default function TicketsPage() {
               <span className="price" style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
                 {b.fare != null ? `${b.fare.toFixed(2)} LKR` : '—'}
               </span>
-              <button className="btn" style={{ fontSize: '0.8rem' }}>View Ticket</button>
+              <button className="btn" style={{ fontSize: '0.8rem' }} onClick={() => setViewTicket(b)}>View Ticket</button>
             </div>
           </article>
         ))}
         {bookings.length === 0 && <p className="muted">No bookings found. <Link to="/">Go book something!</Link></p>}
       </div>
+
+      {viewTicket && (
+        <div className="modal-overlay" onClick={() => setViewTicket(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal-header" style={{ background: 'var(--gradient)', color: '#fff', borderBottom: 'none' }}>
+              <h3 style={{ color: '#fff', margin: 0 }}>{viewTicket.productTitle || viewTicket.bookingRef}</h3>
+              <p style={{ color: 'rgba(255,255,255,0.9)', margin: '0.25rem 0 0' }}>
+                {viewTicket.providerName ? `by ${viewTicket.providerName}` : `Ref: ${viewTicket.bookingRef}`} · <span className="badge" style={{ background: '#fff', color: '#4f46e5' }}>{viewTicket.status}</span>
+              </p>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div className="field">
+                  <label>Reference</label>
+                  <div className="tag" style={{ fontSize: '0.9rem', padding: '0.35rem 0.6rem' }}>{viewTicket.bookingRef}</div>
+                </div>
+                <div className="field">
+                  <label>Status</label>
+                  <span className={`badge ${viewTicket.status.toLowerCase()}`}>{viewTicket.status}</span>
+                </div>
+                <div className="field">
+                  <label>Seat</label>
+                  <span>{viewTicket.seatNumber ?? '—'}</span>
+                </div>
+                <div className="field">
+                  <label>Date</label>
+                  <span>{viewTicket.travelDate ?? '—'}</span>
+                </div>
+                <div className="field">
+                  <label>Provider</label>
+                  <span>{viewTicket.providerName ?? '—'}</span>
+                </div>
+                <div className="field">
+                  <label>Amount</label>
+                  <strong>{viewTicket.fare != null ? `${viewTicket.fare.toFixed(2)} LKR` : '—'}</strong>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
+                <div style={{ width: 140, height: 140, margin: '0 auto 0.75rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.8rem' }}>🎫</div>
+                <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>Show this at entry · QR encodes <strong>{viewTicket.bookingRef}</strong></p>
+                <div style={{ marginTop: '0.6rem', fontFamily: 'monospace', fontSize: '0.85rem', letterSpacing: '0.08em', background: '#fff', display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px dashed var(--border)' }}>
+                  {viewTicket.bookingRef}
+                </div>
+              </div>
+
+              <p className="muted" style={{ fontSize: '0.8rem', textAlign: 'center' }}>
+                Ticket issued by TicketMesh · Valid for single use · In-app support available 24/7.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => { navigator.clipboard.writeText(viewTicket.bookingRef).catch(()=>{}); }}>Copy Ref</button>
+              <button className="btn primary" onClick={() => setViewTicket(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
