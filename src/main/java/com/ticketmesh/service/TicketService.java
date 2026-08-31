@@ -6,12 +6,15 @@ import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import com.ticketmesh.dto.MarketplaceTicketResponse;
 import com.ticketmesh.dto.TicketResponse;
 import com.ticketmesh.dto.VerificationResponse;
 import com.ticketmesh.exception.ConflictException;
 import com.ticketmesh.exception.NotFoundException;
 import com.ticketmesh.model.Booking;
+import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.repository.BookingRepository;
+import com.ticketmesh.repository.ProductOrderRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,15 +38,18 @@ public class TicketService {
     private static final int QR_SIZE = 300;
 
     private final BookingRepository bookingRepository;
+    private final ProductOrderRepository orderRepository;
     private final UserRepository userRepository;
     private final CurrentUser currentUser;
     private final String qrSecret;
 
     public TicketService(BookingRepository bookingRepository,
+                         ProductOrderRepository orderRepository,
                          UserRepository userRepository,
                          CurrentUser currentUser,
                          @Value("${app.qr.secret}") String qrSecret) {
         this.bookingRepository = bookingRepository;
+        this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
         this.qrSecret = qrSecret;
@@ -83,7 +89,42 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
+    public MarketplaceTicketResponse getMarketplaceTicket(String orderRef) {
+        ProductOrder order = loadOwnedOrder(orderRef);
+        if (order.getStatus() != ProductOrder.Status.PAID && order.getStatus() != ProductOrder.Status.ISSUED) {
+            throw new ConflictException("Ticket available only for paid/issued orders: " + orderRef);
+        }
+        return new MarketplaceTicketResponse(
+                order.getOrderRef(),
+                order.getProductTitle(),
+                order.getProviderName(),
+                order.getProductType(),
+                order.getQuantity(),
+                order.getUnitPrice(),
+                order.getTotalAmount(),
+                order.getCurrencyIso(),
+                order.getStatus().name(),
+                order.getCreatedAt(),
+                order.getPaidAt(),
+                order.getHoldExpiresAt(),
+                signMarketplacePayload(order));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getMarketplaceQrPng(String orderRef) {
+        MarketplaceTicketResponse ticket = getMarketplaceTicket(orderRef);
+        try {
+            return generateQrPng(ticket.qrData());
+        } catch (WriterException | IOException e) {
+            throw new IllegalStateException("Failed to generate QR image", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
     public VerificationResponse verify(String qrData) {
+        if (qrData != null && qrData.startsWith("ORDER|")) {
+            return verifyMarketplace(qrData);
+        }
         Payload parsed = parseAndVerifySignature(qrData);
         Booking booking = bookingRepository.findByBookingRef(parsed.bookingRef)
                 .orElseThrow(() -> new NotFoundException("Unknown booking reference"));
@@ -103,6 +144,31 @@ public class TicketService {
                 valid ? "Ticket valid" : "Ticket invalid or not paid");
     }
 
+    private VerificationResponse verifyMarketplace(String qrData) {
+        String[] parts = qrData.split("\\|");
+        if (parts.length < 5) throw new ConflictException("Malformed marketplace QR data");
+        String body = parts[0] + "|" + parts[1] + "|" + parts[2] + "|" + parts[3];
+        String receivedSig = parts[4];
+        if (!constantTimeEquals(receivedSig, hmacHex(body))) {
+            throw new ConflictException("Marketplace QR signature verification failed");
+        }
+        String orderRef = parts[1];
+        ProductOrder order = orderRepository.findByOrderRef(orderRef)
+                .orElseThrow(() -> new NotFoundException("Unknown order reference"));
+        boolean valid = order.getStatus() == ProductOrder.Status.PAID || order.getStatus() == ProductOrder.Status.ISSUED;
+        return new VerificationResponse(
+                valid,
+                order.getOrderRef(),
+                order.getProductTitle(),
+                order.getProviderName(),
+                order.getProviderName(),
+                order.getProductType(),
+                null,
+                order.getQuantity(),
+                order.getStatus().name(),
+                valid ? "Marketplace ticket valid" : "Marketplace ticket invalid or not paid");
+    }
+
     private String signPayload(Booking b) {
         String body = b.getBookingRef() + "|"
                 + b.getSeatNumber() + "|"
@@ -110,6 +176,12 @@ public class TicketService {
                 + b.getTravelDate() + "|"
                 + b.getSchedule().getRoute().getOrigin() + "-"
                 + b.getSchedule().getRoute().getDestination();
+        String sig = hmacHex(body);
+        return body + "|" + sig;
+    }
+
+    private String signMarketplacePayload(ProductOrder o) {
+        String body = "ORDER|" + o.getOrderRef() + "|" + o.getQuantity() + "|" + o.getStatus().name();
         String sig = hmacHex(body);
         return body + "|" + sig;
     }
@@ -164,6 +236,15 @@ public class TicketService {
             throw new NotFoundException("Booking not found: " + bookingId);
         }
         return booking;
+    }
+
+    private ProductOrder loadOwnedOrder(String orderRef) {
+        ProductOrder order = orderRepository.findByOrderRef(orderRef)
+                .orElseThrow(() -> new NotFoundException("Order not found: " + orderRef));
+        if (!order.getUser().getUsername().equals(currentUser.username())) {
+            throw new NotFoundException("Order not found: " + orderRef);
+        }
+        return order;
     }
 
     private record Payload(String bookingRef, int seatNumber, String trainCode,

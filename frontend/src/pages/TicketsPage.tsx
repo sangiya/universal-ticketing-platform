@@ -3,6 +3,7 @@ import { useApi } from '../context/ApiContext';
 import { Link } from 'react-router-dom';
 
 interface Booking {
+  bookingId?: number;
   bookingRef: string;
   status: string;
   seatNumber?: number;
@@ -18,6 +19,8 @@ export default function TicketsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewTicket, setViewTicket] = useState<Booking | null>(null);
+  const [qrSrc, setQrSrc] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   const load = useCallback(async (q = '') => {
     try {
@@ -66,6 +69,30 @@ export default function TicketsPage() {
     e.preventDefault();
     void load(searchQuery);
   };
+
+  useEffect(() => {
+    if (!viewTicket) { setQrSrc(null); return; }
+    const isMarketplace = viewTicket.bookingRef.startsWith('TM-');
+    const path = isMarketplace
+      ? `/tickets/order/${encodeURIComponent(viewTicket.bookingRef)}/qr`
+      : viewTicket.bookingId ? `/tickets/booking/${viewTicket.bookingId}/qr` : null;
+    if (!path) { setQrSrc(null); return; }
+    setQrLoading(true);
+    const token = (api as unknown as { token: string | null }).token ?? localStorage.getItem('ticketmesh_token');
+    fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => {
+        if (!r.ok) throw new Error(`QR ${r.status}`);
+        return r.blob();
+      })
+      .then((b) => {
+        const url = URL.createObjectURL(b);
+        setQrSrc((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+      })
+      .catch(() => setQrSrc(null))
+      .finally(() => setQrLoading(false));
+    return () => { if (qrSrc) URL.revokeObjectURL(qrSrc); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewTicket]);
 
   if (!authenticated) {
     return (
@@ -162,7 +189,9 @@ export default function TicketsPage() {
               </div>
 
               <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.25rem', textAlign: 'center', marginBottom: '1rem' }}>
-                <div style={{ width: 140, height: 140, margin: '0 auto 0.75rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.8rem' }}>🎫</div>
+                <div style={{ width: 140, height: 140, margin: '0 auto 0.75rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {qrLoading ? <span className="muted">Loading QR…</span> : qrSrc ? <img src={qrSrc} alt="QR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: '2.8rem' }}>🎫</span>}
+                </div>
                 <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>Show this at entry · QR encodes <strong>{viewTicket.bookingRef}</strong></p>
                 <div style={{ marginTop: '0.6rem', fontFamily: 'monospace', fontSize: '0.85rem', letterSpacing: '0.08em', background: '#fff', display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px dashed var(--border)' }}>
                   {viewTicket.bookingRef}

@@ -115,6 +115,9 @@ public class ProductOrder {
     @Column(name = "paid_at")
     private Instant paidAt;
 
+    @Column(name = "hold_expires_at")
+    private Instant holdExpiresAt;
+
     public ProductOrder() {
     }
 
@@ -152,6 +155,9 @@ public class ProductOrder {
         this.createdAt = Instant.now();
         if (status == Status.PAID || status == Status.ISSUED) {
             this.paidAt = Instant.now();
+        }
+        if (status == Status.PENDING) {
+            this.holdExpiresAt = Instant.now().plusSeconds(900);
         }
     }
 
@@ -244,6 +250,14 @@ public class ProductOrder {
 
     public Instant getPaidAt() {
         return paidAt;
+    }
+
+    public Instant getHoldExpiresAt() {
+        return holdExpiresAt;
+    }
+
+    public void setHoldExpiresAt(Instant holdExpiresAt) {
+        this.holdExpiresAt = holdExpiresAt;
     }
 
     public enum Status {

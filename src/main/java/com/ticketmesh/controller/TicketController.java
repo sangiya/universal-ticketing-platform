@@ -1,5 +1,6 @@
 package com.ticketmesh.controller;
 
+import com.ticketmesh.dto.MarketplaceTicketResponse;
 import com.ticketmesh.dto.TicketResponse;
 import com.ticketmesh.dto.VerificationResponse;
 import com.ticketmesh.service.TicketService;
@@ -31,6 +32,18 @@ public class TicketController {
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
                 .body(ticketService.getQrPng(bookingId));
+    }
+
+    @GetMapping("/order/{orderRef}")
+    public ResponseEntity<MarketplaceTicketResponse> getMarketplaceTicket(@PathVariable("orderRef") String orderRef) {
+        return ResponseEntity.ok(ticketService.getMarketplaceTicket(orderRef));
+    }
+
+    @GetMapping(value = "/order/{orderRef}/qr", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getMarketplaceQr(@PathVariable("orderRef") String orderRef) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(ticketService.getMarketplaceQrPng(orderRef));
     }
 
     @GetMapping("/verify")

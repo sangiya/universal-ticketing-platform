@@ -13,4 +13,6 @@ public interface ProductOrderRepository extends JpaRepository<ProductOrder, Long
     List<ProductOrder> findByTenant_IdOrderByCreatedAtDesc(Long tenantId);
 
     Optional<ProductOrder> findByOrderRef(String orderRef);
+
+    List<ProductOrder> findByStatusAndHoldExpiresAtBefore(ProductOrder.Status status, java.time.Instant now);
 }

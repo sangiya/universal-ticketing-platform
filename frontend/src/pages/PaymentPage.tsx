@@ -16,6 +16,7 @@ interface Order {
   discountAmount: number;
   totalAmount: number;
   status: string;
+  holdExpiresAt?: string | null;
 }
 
 const CARD_TYPES = ['Visa', 'Mastercard', 'Amex'];
@@ -36,6 +37,12 @@ export default function PaymentPage() {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const loadOrder = useCallback(async () => {
     if (!orderRef) return;
@@ -144,7 +151,18 @@ export default function PaymentPage() {
         <p className="muted" style={{ marginTop: '0.5rem' }}>
           Order <span className="tag">{order.orderRef}</span> ·{' '}
           <span className="badge open">Pending payment</span>
+          {order.holdExpiresAt && (() => {
+            const remainMs = new Date(order.holdExpiresAt).getTime() - nowTick;
+            const expired = remainMs <= 0 || order.status === 'EXPIRED';
+            if (expired) return <span className="badge blocked" style={{ marginLeft: '0.5rem' }}>Hold expired — inventory released</span>;
+            const m = Math.floor(remainMs / 60000);
+            const s = Math.floor((remainMs % 60000) / 1000);
+            return <span className="badge pending" style={{ marginLeft: '0.5rem' }}>Reserve expires in {m}:{String(s).padStart(2,'0')}</span>;
+          })()}
         </p>
+        {order.holdExpiresAt && new Date(order.holdExpiresAt).getTime() - nowTick <= 0 && (
+          <p className="error">This hold has expired. <Link to="/marketplace">Check availability again</Link> — your form data is preserved.</p>
+        )}
       </div>
 
       <div className="card" style={{ borderTop: '4px solid #7c3aed' }}>
@@ -178,9 +196,14 @@ export default function PaymentPage() {
             </div>
           </div>
           {payError && <p className="error">{payError}</p>}
-          <button className="btn primary" type="submit" disabled={paying}>
-            {paying ? 'Processing…' : `Pay ${order.currencyIso} ${fmt(order.totalAmount)}`}
-          </button>
+          {(() => {
+            const expired = order.holdExpiresAt ? new Date(order.holdExpiresAt).getTime() - nowTick <= 0 : false;
+            return (
+              <button className="btn primary" type="submit" disabled={paying || expired}>
+                {expired ? 'Hold expired' : paying ? 'Processing…' : `Pay ${order.currencyIso} ${fmt(order.totalAmount)}`}
+              </button>
+            );
+          })()}
           <p className="muted" style={{ fontSize: '0.8rem' }}>
             Demo checkout — payment is simulated. No real card is charged.
           </p>
