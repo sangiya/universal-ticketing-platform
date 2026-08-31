@@ -65,10 +65,15 @@ public class PromotionService {
      */
     @Transactional(readOnly = true)
     public Promotion validate(Long tenantId, String code, BigDecimal subtotal) {
+        return validate(tenantId, code, subtotal, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Promotion validate(Long tenantId, String code, BigDecimal subtotal, String productType) {
         Promotion p = promotionRepository
                 .findByTenantIdAndCode(tenantId, code.trim().toUpperCase())
                 .orElse(null);
-        return isValid(p, subtotal) ? p : null;
+        return isValid(p, subtotal, productType) ? p : null;
     }
 
     /**
@@ -76,10 +81,15 @@ public class PromotionService {
      */
     @Transactional
     public Promotion redeem(Long tenantId, String code, BigDecimal subtotal) {
+        return redeem(tenantId, code, subtotal, null);
+    }
+
+    @Transactional
+    public Promotion redeem(Long tenantId, String code, BigDecimal subtotal, String productType) {
         Promotion p = promotionRepository
                 .findByTenantIdAndCode(tenantId, code.trim().toUpperCase())
                 .orElse(null);
-        if (!isValid(p, subtotal)) {
+        if (!isValid(p, subtotal, productType)) {
             return null;
         }
         p.incrementUsed();
@@ -87,12 +97,31 @@ public class PromotionService {
     }
 
     private boolean isValid(Promotion p, BigDecimal subtotal) {
+        return isValid(p, subtotal, null);
+    }
+
+    private boolean isValid(Promotion p, BigDecimal subtotal, String productType) {
         if (p == null || !p.isActiveNow()) {
             return false;
         }
         if (p.getMaxUses() != null && p.getUsedCount() >= p.getMaxUses()) {
             return false;
         }
-        return p.getMinPurchase() == null || subtotal.compareTo(p.getMinPurchase()) >= 0;
+        if (p.getMinPurchase() != null && subtotal.compareTo(p.getMinPurchase()) < 0) {
+            return false;
+        }
+        if (p.getDomains() != null && !p.getDomains().isBlank() && productType != null) {
+            String domainsRaw = p.getDomains().trim();
+            if (domainsRaw.equalsIgnoreCase("ALL") || domainsRaw.equals("*")) {
+                // wildcard — matches any product type
+            } else {
+                String needed = productType.trim().toUpperCase();
+                boolean match = java.util.Arrays.stream(domainsRaw.split(","))
+                        .map(String::trim).map(String::toUpperCase)
+                        .anyMatch(d -> d.equals(needed) || d.equals("*") || d.equals("ALL"));
+                if (!match) return false;
+            }
+        }
+        return true;
     }
 }

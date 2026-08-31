@@ -70,7 +70,8 @@ public class PricingService {
 
         // 2. Promo Code (Overwrites or adds to loyalty? Usually, users pick the best one)
         if (promoCode != null && !promoCode.isBlank()) {
-            Promotion promotion = promotionService.validate(tenantId, promoCode, subtotal);
+            String pType = product.getProductType() != null ? product.getProductType().name() : null;
+            Promotion promotion = promotionService.validate(tenantId, promoCode, subtotal, pType);
             if (promotion != null) {
                 BigDecimal promoDiscount = discountAmount(promotion, subtotal);
                 if (promoDiscount.compareTo(discount) > 0) {
@@ -106,7 +107,11 @@ public class PricingService {
      * checkout. Returns the discount amount or zero.
      */
     public BigDecimal redeemAndDiscount(Long tenantId, String promoCode, BigDecimal subtotal) {
-        Promotion promotion = promotionService.redeem(tenantId, promoCode, subtotal);
+        return redeemAndDiscount(tenantId, promoCode, subtotal, null);
+    }
+
+    public BigDecimal redeemAndDiscount(Long tenantId, String promoCode, BigDecimal subtotal, String productType) {
+        Promotion promotion = promotionService.redeem(tenantId, promoCode, subtotal, productType);
         if (promotion == null) {
             return BigDecimal.ZERO;
         }
