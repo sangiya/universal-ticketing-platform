@@ -1,6 +1,7 @@
 package com.ticketmesh.model;
 
 import jakarta.persistence.Column;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -38,14 +39,17 @@ public class ProductOrder {
     @Column(nullable = false, unique = true, length = 40)
     private String orderRef;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tenant_id", nullable = false)
     private Tenant tenant;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     private ProviderProduct product;
@@ -147,14 +151,17 @@ public class ProductOrder {
         return orderRef;
     }
 
+    @JsonIgnore
     public Tenant getTenant() {
         return tenant;
     }
 
+    @JsonIgnore
     public User getUser() {
         return user;
     }
 
+    @JsonIgnore
     public ProviderProduct getProduct() {
         return product;
     }

@@ -38,6 +38,6 @@ CREATE TABLE fraud_signals (
     score INT NOT NULL,
     risk VARCHAR(12) NOT NULL,
     flags VARCHAR(500),
-    details CLOB,
+    details LONGTEXT,
     created_at TIMESTAMP NOT NULL
 );

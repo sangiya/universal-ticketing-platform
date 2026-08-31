@@ -52,7 +52,7 @@ public class FraudSignal {
     @Column(length = 500)
     private String flags;
 
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String details;
 
     @Column(nullable = false, updatable = false)

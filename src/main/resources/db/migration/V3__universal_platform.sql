@@ -89,7 +89,7 @@ CREATE TABLE provider_products (
     currency_iso VARCHAR(3) NOT NULL,
     available_quantity INT NOT NULL DEFAULT 0,
     description VARCHAR(1000),
-    attributes CLOB,
+    attributes LONGTEXT,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,

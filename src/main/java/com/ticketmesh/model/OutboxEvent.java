@@ -48,7 +48,7 @@ public class OutboxEvent {
     private String eventType;
 
     @NotBlank
-    @Column(nullable = false, columnDefinition = "CLOB")
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String payload;
 
     @Enumerated(EnumType.STRING)

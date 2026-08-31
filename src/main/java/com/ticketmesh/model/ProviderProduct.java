@@ -87,7 +87,7 @@ public class ProviderProduct {
     @Column(length = 1000)
     private String description;
 
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String attributes;
 
     @Column(nullable = false)

@@ -13,7 +13,7 @@ ALTER TABLE tenant_branding ADD COLUMN footer_text VARCHAR(500) NULL;
 ALTER TABLE tenant_branding ADD COLUMN currency_symbol_position VARCHAR(10) NULL;
 ALTER TABLE tenant_branding ADD COLUMN button_radius INT NULL;
 ALTER TABLE tenant_branding ADD COLUMN nav_theme VARCHAR(20) NULL;
-ALTER TABLE tenant_branding ADD COLUMN custom_css CLOB NULL;
+ALTER TABLE tenant_branding ADD COLUMN custom_css LONGTEXT NULL;
 ALTER TABLE tenant_branding ADD COLUMN favicon_url VARCHAR(500) NULL;
 ALTER TABLE tenant_branding ADD COLUMN announcement VARCHAR(500) NULL;
 
@@ -21,7 +21,7 @@ ALTER TABLE tenant_branding ADD COLUMN announcement VARCHAR(500) NULL;
 ALTER TABLE provider_products ADD COLUMN base_price DECIMAL(12, 2) NULL;
 ALTER TABLE provider_products ADD COLUMN tax_rate DECIMAL(6, 4) NULL;
 ALTER TABLE provider_products ADD COLUMN service_fee DECIMAL(12, 2) NULL;
-ALTER TABLE provider_products ADD COLUMN seat_layout CLOB NULL;
+ALTER TABLE provider_products ADD COLUMN seat_layout LONGTEXT NULL;
 ALTER TABLE provider_products ADD COLUMN venue VARCHAR(160) NULL;
 ALTER TABLE provider_products ADD COLUMN starts_at TIMESTAMP NULL;
 ALTER TABLE provider_products ADD COLUMN ends_at TIMESTAMP NULL;
@@ -124,7 +124,7 @@ CREATE TABLE outbox_events (
     aggregate_type VARCHAR(60) NOT NULL,
     aggregate_id VARCHAR(60) NOT NULL,
     event_type VARCHAR(80) NOT NULL,
-    payload CLOB NOT NULL,
+    payload LONGTEXT NOT NULL,
     status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP NOT NULL,
     delivered_at TIMESTAMP,
