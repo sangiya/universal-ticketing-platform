@@ -923,19 +923,19 @@ textarea:focus {
 
 .portal-sidebar {
   flex: 0 0 220px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: #0f172a;
+  border: none;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   position: sticky;
   top: 84px;
 }
 
 .portal-sidebar .ps-brand {
-  padding: 1.1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--gradient);
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: #0f172a;
   color: #fff;
   font-weight: 800;
   font-size: 1rem;
@@ -945,7 +945,7 @@ textarea:focus {
   display: block;
   font-weight: 500;
   font-size: 0.72rem;
-  color: #ede9fe;
+  color: #94a3b8;
   margin-top: 0.15rem;
 }
 
@@ -966,8 +966,8 @@ textarea:focus {
   background: none;
   font: inherit;
   font-weight: 600;
-  color: var(--muted);
-  padding: 0.6rem 0.8rem;
+  color: #94a3b8;
+  padding: 0.62rem 0.85rem;
   border-radius: 9px;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
@@ -980,13 +980,14 @@ textarea:focus {
 }
 
 .portal-nav button:hover {
-  color: var(--primary);
-  background: var(--bg);
+  color: #fff;
+  background: rgba(255,255,255,0.08);
 }
 
 .portal-nav button.active {
   color: #fff;
   background: var(--gradient);
+  box-shadow: 0 4px 14px rgba(79,70,229,0.4);
 }
 
 .portal-main {
@@ -997,6 +998,43 @@ textarea:focus {
 .portal-main .card,
 .portal-main > .table {
   box-shadow: var(--shadow);
+}
+
+/* ============ Bottom nav (mobile) ============ */
+.bottom-nav { display:none; }
+.bottom-nav a { display:flex; flex-direction:column; align-items:center; gap:0.15rem; font-size:0.68rem; color:var(--muted); text-decoration:none; padding:0.35rem 0.6rem; border-radius:8px; }
+.bottom-nav a.active { color:var(--primary); background:#ede9fe; }
+.bottom-nav .ico { font-size:1.25rem; line-height:1; }
+
+/* ============ Search Console (reference hero) ============ */
+.search-console {
+  display: grid;
+  grid-template-columns: 1.5fr 1.5fr 1.2fr 1fr auto;
+  gap: 0.85rem;
+  background: #fff;
+  padding: 1.1rem;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -12px rgba(49,46,129,0.22);
+  margin: 1.75rem auto 0;
+  max-width: 980px;
+  align-items: end;
+}
+.search-console .field { display:flex; flex-direction:column; gap:0.35rem; }
+.search-console label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); font-weight:700; }
+.search-console input, .search-console select { padding:0.75rem 0.9rem; border:1px solid var(--border); border-radius:10px; font-size:0.93rem; background:#fff; }
+.search-console input:focus { outline:none; border-color:var(--violet); box-shadow:0 0 0 3px #ede9fe; }
+.shelf { display:flex; gap:1rem; overflow-x:auto; padding:0.5rem 0 1rem; scrollbar-width:thin; }
+.shelf-card { min-width:156px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.1rem; text-align:center; transition:transform .15s, box-shadow .15s; flex-shrink:0; }
+.shelf-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); border-color:#ddd6fe; }
+.shelf-card .ico { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin:0 auto 0.6rem; background:var(--gradient-soft); font-size:1.45rem; }
+.wallet-card { background:var(--gradient); color:#fff; border-radius:14px; padding:1.25rem; display:flex; flex-direction:column; gap:0.35rem; }
+.wallet-card small { opacity:0.85; letter-spacing:0.04em; text-transform:uppercase; font-size:0.7rem; font-weight:700; }
+.top-routes { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; }
+.route-card { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:0.9rem 1.1rem; }
+.route-card strong { font-size:0.95rem; }
+@media (max-width: 860px){
+  .search-console{ grid-template-columns:1fr 1fr; }
+  .top-routes{ grid-template-columns:1fr; }
 }
 
 /* ============ Modals ============ */
@@ -1113,4 +1151,7 @@ textarea:focus {
   .hero-stats {
     gap: 1.25rem;
   }
+  .bottom-nav { display:flex; }
+  .content { padding-bottom: 72px; }
+  .search-console { grid-template-columns:1fr; }
 }

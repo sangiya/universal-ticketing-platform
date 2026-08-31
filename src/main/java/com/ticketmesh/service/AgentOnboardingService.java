@@ -5,9 +5,11 @@ import com.ticketmesh.dto.ShopResponse;
 import com.ticketmesh.exception.ConflictException;
 import com.ticketmesh.exception.NotFoundException;
 import com.ticketmesh.model.AgentShop;
+import com.ticketmesh.model.ShopModerationAudit;
 import com.ticketmesh.model.Tenant;
 import com.ticketmesh.model.User;
 import com.ticketmesh.repository.AgentShopRepository;
+import com.ticketmesh.repository.ShopModerationAuditRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.springframework.stereotype.Service;
@@ -26,15 +28,18 @@ public class AgentOnboardingService {
     private final AgentShopRepository shopRepository;
     private final UserRepository userRepository;
     private final TenantService tenantService;
+    private final ShopModerationAuditRepository auditRepository;
     private final CurrentUser currentUser;
 
     public AgentOnboardingService(AgentShopRepository shopRepository,
-                                  UserRepository userRepository,
-                                  TenantService tenantService,
-                                  CurrentUser currentUser) {
+                                   UserRepository userRepository,
+                                   TenantService tenantService,
+                                   ShopModerationAuditRepository auditRepository,
+                                   CurrentUser currentUser) {
         this.shopRepository = shopRepository;
         this.userRepository = userRepository;
         this.tenantService = tenantService;
+        this.auditRepository = auditRepository;
         this.currentUser = currentUser;
     }
 
@@ -69,15 +74,25 @@ public class AgentOnboardingService {
 
     @Transactional
     public ShopResponse approve(Long shopId, AgentShop.Status action) {
+        return approveWithReason(shopId, action, null);
+    }
+
+    @Transactional
+    public ShopResponse approveWithReason(Long shopId, AgentShop.Status action, String reason) {
         AgentShop shop = requireShop(shopId);
+        String from = shop.getStatus().name();
         if (action == AgentShop.Status.APPROVED) {
             shop.approve(currentUser().getId());
         } else if (action == AgentShop.Status.SUSPENDED) {
-            shop.suspend(currentUser().getId());
+            if (reason == null || reason.isBlank()) {
+                throw new ConflictException("Suspension requires a reason");
+            }
+            shop.suspend(currentUser().getId(), reason);
         } else {
             throw new ConflictException("Only APPROVED or SUSPENDED actions are allowed");
         }
         shopRepository.save(shop);
+        auditRepository.save(new ShopModerationAudit(shopId, from, action.name(), reason, currentUser().getId()));
         return toResponse(shop);
     }
 

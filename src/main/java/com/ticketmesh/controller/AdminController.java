@@ -46,8 +46,9 @@ public class AdminController {
     @PutMapping("/shops/{id}")
     public ResponseEntity<ShopResponse> reviewShop(
             @PathVariable("id") Long id,
-            @RequestParam("action") AgentShop.Status action) {
-        return ResponseEntity.ok(onboardingService.approve(id, action));
+            @RequestParam("action") AgentShop.Status action,
+            @RequestParam(value = "reason", required = false) String reason) {
+        return ResponseEntity.ok(onboardingService.approveWithReason(id, action, reason));
     }
 
     @GetMapping("/users")

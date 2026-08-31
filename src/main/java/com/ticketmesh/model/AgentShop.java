@@ -82,6 +82,9 @@ public class AgentShop {
     @Column(name = "reviewed_by")
     private Long reviewedBy;
 
+    @Column(name = "suspension_reason", length = 255)
+    private String suspensionReason;
+
     public AgentShop() {
     }
 
@@ -193,13 +196,21 @@ public class AgentShop {
         this.status = Status.APPROVED;
         this.reviewedAt = Instant.now();
         this.reviewedBy = reviewerId;
+        this.suspensionReason = null;
     }
 
-    public void suspend(Long reviewerId) {
+    public void suspend(Long reviewerId, String reason) {
         this.status = Status.SUSPENDED;
         this.reviewedAt = Instant.now();
         this.reviewedBy = reviewerId;
+        this.suspensionReason = reason;
     }
+
+    public void suspend(Long reviewerId) {
+        suspend(reviewerId, null);
+    }
+
+    public String getSuspensionReason() { return suspensionReason; }
 
     public enum Status {
         PENDING,

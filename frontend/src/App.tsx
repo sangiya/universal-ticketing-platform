@@ -105,6 +105,13 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <nav className="bottom-nav" aria-label="Mobile navigation">
+        <NavLink to="/"><span className="ico">🏠</span>Home</NavLink>
+        <NavLink to="/tickets"><span className="ico">🎟️</span>My Trips</NavLink>
+        <NavLink to="/marketplace"><span className="ico">🔍</span>Offers</NavLink>
+        <NavLink to="/orders"><span className="ico">👛</span>Wallet</NavLink>
+        <NavLink to="/settings"><span className="ico">👤</span>Profile</NavLink>
+      </nav>
       <footer className="footer">
         <span>TicketMesh — All your tickets, one platform.</span>
       </footer>

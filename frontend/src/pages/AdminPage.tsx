@@ -232,11 +232,31 @@ export default function AdminPage() {
   const reviewShop = async (id: number, action: 'APPROVED' | 'REJECTED') => {
     setMsg(null);
     try {
-      await api.put<unknown>(`/admin/shops/${id}?action=${action}`);
-      setMsg(`Shop #${id} ${action.toLowerCase()}.`);
+      if (action === 'APPROVED') {
+        await api.put<unknown>(`/admin/shops/${id}?action=APPROVED`);
+        setMsg(`Shop #${id} approved.`);
+      } else {
+        const reason = window.prompt('Reason for rejection / suspension (required):', 'Does not meet marketplace policy');
+        if (!reason || !reason.trim()) { setError('Suspension requires a reason'); return; }
+        await api.put<unknown>(`/admin/shops/${id}?action=SUSPENDED&reason=${encodeURIComponent(reason.trim())}`);
+        setMsg(`Shop #${id} suspended — reason: ${reason.trim()}`);
+      }
       void loadShops();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to review shop');
+    }
+  };
+
+  const suspendApprovedShop = async (id: number) => {
+    const reason = window.prompt('Suspension reason (required, audit trail):', 'Policy violation — blocking new sales');
+    if (!reason || !reason.trim()) { setError('Suspension requires a reason'); return; }
+    setMsg(null);
+    try {
+      await api.put<unknown>(`/admin/shops/${id}?action=SUSPENDED&reason=${encodeURIComponent(reason.trim())}`);
+      setMsg(`Shop #${id} suspended — inventory blocked, tickets remain valid`);
+      void loadShops();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to suspend shop');
     }
   };
 
@@ -492,7 +512,7 @@ export default function AdminPage() {
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Shop</th><th>Business</th><th>Country</th><th>Reviewed</th></tr>
+                <tr><th>Shop</th><th>Business</th><th>Country</th><th>Reviewed</th><th></th></tr>
               </thead>
               <tbody>
                 {approvedShops.map((s) => (
@@ -501,6 +521,7 @@ export default function AdminPage() {
                     <td>{s.businessType}</td>
                     <td>{s.countryIso}</td>
                     <td>{s.reviewedAt ? new Date(s.reviewedAt).toLocaleDateString() : '—'}</td>
+                    <td><button className="btn" style={{ fontSize:'0.78rem'}} onClick={() => void suspendApprovedShop(s.id)}>Suspend</button></td>
                   </tr>
                 ))}
               </tbody>
