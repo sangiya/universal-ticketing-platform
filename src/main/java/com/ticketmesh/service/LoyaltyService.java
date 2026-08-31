@@ -1,7 +1,9 @@
 package com.ticketmesh.service;
 
 import com.ticketmesh.model.LoyaltyAccount;
+import com.ticketmesh.model.LoyaltyLedgerEntry;
 import com.ticketmesh.repository.LoyaltyAccountRepository;
+import com.ticketmesh.repository.LoyaltyLedgerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class LoyaltyService {
 
     private final LoyaltyAccountRepository loyaltyRepository;
+    private final LoyaltyLedgerRepository ledgerRepository;
 
-    public LoyaltyService(LoyaltyAccountRepository loyaltyRepository) {
+    public LoyaltyService(LoyaltyAccountRepository loyaltyRepository,
+                          LoyaltyLedgerRepository ledgerRepository) {
         this.loyaltyRepository = loyaltyRepository;
+        this.ledgerRepository = ledgerRepository;
     }
 
     @Transactional
@@ -25,9 +30,17 @@ public class LoyaltyService {
 
     @Transactional
     public LoyaltyAccount earn(Long tenantId, Long userId, long points) {
+        return earnWithRef(tenantId, userId, points, null, LoyaltyLedgerEntry.EntryType.ACCRUAL, "Order accrual");
+    }
+
+    @Transactional
+    public LoyaltyAccount earnWithRef(Long tenantId, Long userId, long points, String orderRef,
+                                      LoyaltyLedgerEntry.EntryType type, String reason) {
         LoyaltyAccount account = getOrCreate(tenantId, userId);
         account.earn(points);
-        return loyaltyRepository.save(account);
+        loyaltyRepository.save(account);
+        ledgerRepository.save(new LoyaltyLedgerEntry(tenantId, userId, points, account.getPoints(), type, reason, orderRef));
+        return account;
     }
 
     @Transactional
@@ -36,6 +49,9 @@ public class LoyaltyService {
         if (!account.redeem(points)) {
             throw new IllegalArgumentException("Insufficient loyalty points");
         }
-        return loyaltyRepository.save(account);
+        loyaltyRepository.save(account);
+        ledgerRepository.save(new LoyaltyLedgerEntry(tenantId, userId, -points, account.getPoints(),
+                LoyaltyLedgerEntry.EntryType.REDEMPTION, "Redeemed at checkout", null));
+        return account;
     }
 }

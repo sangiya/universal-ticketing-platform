@@ -6,16 +6,19 @@ import com.ticketmesh.model.Notification;
 import com.ticketmesh.model.OrderAuditLog;
 import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.model.ProviderProduct;
+import com.ticketmesh.model.SettlementEntry;
 import com.ticketmesh.model.User;
 import com.ticketmesh.repository.OrderAuditLogRepository;
 import com.ticketmesh.repository.ProductOrderRepository;
 import com.ticketmesh.repository.ProviderProductRepository;
+import com.ticketmesh.repository.SettlementRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +35,7 @@ public class ProductOrderService {
     private final NotificationService notificationService;
     private final EventService eventService;
     private final OrderAuditLogRepository auditRepository;
+    private final SettlementRepository settlementRepository;
     private final CurrentUser currentUser;
 
     public ProductOrderService(ProductOrderRepository orderRepository,
@@ -43,6 +47,7 @@ public class ProductOrderService {
                                 NotificationService notificationService,
                                 EventService eventService,
                                 OrderAuditLogRepository auditRepository,
+                                SettlementRepository settlementRepository,
                                 CurrentUser currentUser) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
@@ -53,6 +58,7 @@ public class ProductOrderService {
         this.notificationService = notificationService;
         this.eventService = eventService;
         this.auditRepository = auditRepository;
+        this.settlementRepository = settlementRepository;
         this.currentUser = currentUser;
     }
 
@@ -87,8 +93,10 @@ public class ProductOrderService {
         order.setPaidAt(Instant.now());
         orderRepository.save(order);
         auditRepository.save(new OrderAuditLog(order, oldStatus, "PAID", "Payment verified", currentUser.username()));
-        loyaltyService.earn(order.getTenant().getId(), user.getId(),
-                order.getTotalAmount().longValue() / 10);
+        loyaltyService.earnWithRef(order.getTenant().getId(), user.getId(),
+                order.getTotalAmount().longValue() / 10, order.getOrderRef(),
+                com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.ACCRUAL, "Order " + order.getOrderRef() + " paid");
+        createSettlement(order);
         notificationService.notify(order.getTenant().getId(), user.getId(),
                 Notification.Channel.IN_APP, "Payment received",
                 "Your order " + order.getOrderRef() + " is now paid and processing.");
@@ -131,8 +139,9 @@ public class ProductOrderService {
         PricingService.Breakdown b = pricingService.breakdown(
                 product, promoCode, product.getCurrencyIso(), tenantId, user.getId());
         BigDecimal unitPrice = product.getPrice();
+        String pType = product.getProductType() != null ? product.getProductType().name() : null;
         BigDecimal discount = promoCode != null && !promoCode.isBlank()
-                ? pricingService.redeemAndDiscount(tenantId, promoCode, b.subtotal)
+                ? pricingService.redeemAndDiscount(tenantId, promoCode, b.subtotal, pType)
                 : BigDecimal.ZERO;
         BigDecimal total = b.subtotal.subtract(discount);
         ProductOrder order = new ProductOrder(
@@ -146,7 +155,9 @@ public class ProductOrderService {
         productRepository.save(product);
         auditRepository.save(new OrderAuditLog(order, "NONE", status.name(), "Order created", currentUser.username()));
         if (status == ProductOrder.Status.PAID) {
-            loyaltyService.earn(tenantId, user.getId(), total.longValue() / 10);
+            loyaltyService.earnWithRef(tenantId, user.getId(), total.longValue() / 10, order.getOrderRef(),
+                    com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.ACCRUAL, "Order " + order.getOrderRef() + " created paid");
+            createSettlement(order);
         }
         String eventType = status == ProductOrder.Status.PENDING ? "ORDER_PENDING" : "ORDER_CREATED";
         eventService.emit("PRODUCT_ORDER", order.getOrderRef(), eventType,
@@ -173,6 +184,20 @@ public class ProductOrderService {
     @Transactional(readOnly = true)
     public List<ProductOrder> byTenant(Long tenantId) {
         return orderRepository.findByTenant_IdOrderByCreatedAtDesc(tenantId);
+    }
+
+    private void createSettlement(ProductOrder order) {
+        BigDecimal gross = order.getBaseAmount().add(order.getTaxAmount()).add(order.getServiceFee());
+        BigDecimal platformFee = order.getServiceFee().setScale(2, RoundingMode.HALF_UP);
+        // 3% commission on base as platform commission (example)
+        BigDecimal commission = order.getBaseAmount().multiply(new BigDecimal("0.03")).setScale(2, RoundingMode.HALF_UP);
+        platformFee = platformFee.add(commission);
+        BigDecimal net = order.getTotalAmount().subtract(platformFee).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+        SettlementEntry entry = new SettlementEntry(
+                order.getTenant().getId(), order.getOrderRef(),
+                order.getProduct() != null ? order.getProduct().getProvider().getId() : null,
+                order.getProductType(), gross, platformFee, net, order.getCurrencyIso());
+        settlementRepository.save(entry);
     }
 
     private String generateRef() {
