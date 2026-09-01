@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApi } from '../context/ApiContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Alert, Currency, EmptyState, PageHeader, SectionTitle } from '../components/UI';
 
 /**
