@@ -1,9 +1,13 @@
 package com.ticketmesh.security;
 
+import com.ticketmesh.model.User;
+import com.ticketmesh.observability.MdcLoggingFilter;
+import com.ticketmesh.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,10 +25,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+                                   UserDetailsService userDetailsService,
+                                   UserRepository userRepository) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -54,6 +62,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                // Populate MDC with the authenticated user's id and tenant for
+                // structured logging (spec §55).
+                userRepository.findByUsername(username).ifPresent(user -> {
+                    MdcLoggingFilter.setAuthenticated(
+                            String.valueOf(user.getId()),
+                            user.getTenantId() == null ? null : String.valueOf(user.getTenantId()));
+                });
             }
         }
         filterChain.doFilter(request, response);

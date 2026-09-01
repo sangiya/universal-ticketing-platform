@@ -5,7 +5,14 @@ spring:
   application:
     name: ticketmesh-core
   profiles:
-    default: ai-offline
+    active: ai-offline
+  ai:
+    chat:
+      client:
+        enabled: false
+    embeddings:
+      client:
+        enabled: false
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/ticketmesh_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:ticketmesh_app}
@@ -42,6 +49,23 @@ app:
   provider:
     connect-timeout-ms: ${PROVIDER_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${PROVIDER_READ_TIMEOUT_MS:3000}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 30s
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      provider:
+        baseConfig: default
+        registerHealthIndicator: true
   messaging:
     whatsapp:
       enabled: ${WHATSAPP_ENABLED:true}
@@ -59,3 +83,9 @@ management:
 logging:
   level:
     org.springframework.security: INFO
+    com.ticketmesh: INFO
+  pattern:
+    # Structured log: timestamp | level | traceId | userId | tenantId | logger | message
+    # Uses MDC keys set by MdcLoggingFilter and JwtAuthenticationFilter.
+    level: "%5p"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-},%X{spanId:-},%X{userId:-},%X{tenantId:-}] %logger{40} - %msg%n"

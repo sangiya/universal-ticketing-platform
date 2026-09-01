@@ -51,6 +51,15 @@ public class PromotionController {
         return ResponseEntity.ok(promotionService.listByTenant(requestContext.tenantIdOr(tenantId)));
     }
 
+    /**
+     * Public listing of all currently-active discount codes across all tenants.
+     * No authentication required — visitors can browse available coupons before signing in.
+     */
+    @GetMapping("/active")
+    public ResponseEntity<List<Promotion>> listActive() {
+        return ResponseEntity.ok(promotionService.listPublicActive());
+    }
+
     @PostMapping("/{id}/toggle")
     public ResponseEntity<Promotion> toggle(
             @PathVariable("id") Long promotionId,

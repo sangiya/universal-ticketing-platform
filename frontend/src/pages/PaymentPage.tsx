@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
+import {
+  Alert,
+  Currency,
+  EmptyState,
+  PageHeader,
+  Skeleton,
+} from '../components/UI';
 
 interface Order {
   orderRef: string;
@@ -51,7 +58,13 @@ export default function PaymentPage() {
     try {
       const data = await api.get<Order>(`/orders/${orderRef}`);
       setOrder(data);
-      if (data.status === 'PAID' || data.status === 'ISSUED' || data.status === 'CONFIRMED') setPaid(true);
+      if (
+        data.status === 'PAID' ||
+        data.status === 'ISSUED' ||
+        data.status === 'CONFIRMED'
+      ) {
+        setPaid(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load order');
     } finally {
@@ -62,8 +75,6 @@ export default function PaymentPage() {
   useEffect(() => {
     void loadOrder();
   }, [loadOrder]);
-
-  const fmt = (n: number | null | undefined) => n == null ? '—' : Number(n).toFixed(2);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +95,10 @@ export default function PaymentPage() {
   if (loading) {
     return (
       <section className="page narrow">
-        <p className="muted">Loading checkout…</p>
+        <PageHeader title="Checkout" subtitle="Loading your order…" />
+        <div className="card">
+          <Skeleton lines={6} />
+        </div>
       </section>
     );
   }
@@ -92,9 +106,17 @@ export default function PaymentPage() {
   if (error || !order) {
     return (
       <section className="page narrow">
-        <h1>Checkout</h1>
-        <p className="error">{error ?? 'Order not found.'}</p>
-        <Link className="btn" to="/marketplace">Back to marketplace</Link>
+        <PageHeader title="Checkout" />
+        <EmptyState
+          icon="❌"
+          title="Order not found"
+          description={error ?? 'This order may have expired or been removed.'}
+          action={
+            <Link className="btn primary" to="/marketplace">
+              Back to marketplace
+            </Link>
+          }
+        />
       </section>
     );
   }
@@ -102,110 +124,257 @@ export default function PaymentPage() {
   if (paid) {
     return (
       <section className="page narrow">
-        <div className="card" style={{ textAlign: 'center', padding: '2.5rem', borderTop: `4px solid var(--ok)` }}>
-          <div style={{ width: 72, height: 72, margin: '0 auto 1rem', borderRadius: '50%', background: 'var(--gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '2.4rem' }}>✔</div>
-          <h1 style={{ marginBottom: '0.5rem' }}>Payment successful</h1>
-          <p className="muted">
+        <div
+          className="card spacious"
+          style={{
+            textAlign: 'center',
+            borderTop: '4px solid var(--success)',
+          }}
+        >
+          <div
+            style={{
+              width: 80,
+              height: 80,
+              margin: '0 auto var(--space-4)',
+              borderRadius: '50%',
+              background: 'var(--gradient-success)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.4rem',
+              boxShadow: '0 12px 30px -8px rgba(16, 185, 129, 0.5)',
+            }}
+          >
+            ✓
+          </div>
+          <h1 style={{ marginBottom: 'var(--space-2)' }}>Payment successful</h1>
+          <p className="muted" style={{ maxWidth: 480, margin: '0 auto var(--space-5)' }}>
             Your order <strong>{order.orderRef}</strong> for{' '}
-            <strong>{order.productTitle}</strong>{' '}
-            ({order.currencyIso} {fmt(order.totalAmount)}) is confirmed and paid.
+            <strong>{order.productTitle}</strong> (
+            <Currency amount={order.totalAmount} currency={order.currencyIso} />
+            ) is confirmed and paid. We've sent a receipt to your email.
           </p>
-          <div className="row" style={{ justifyContent: 'center', gap: '0.75rem', marginTop: '1.25rem' }}>
-            <Link className="btn primary" to="/orders">View my orders</Link>
-            <Link className="btn" to="/marketplace">Continue shopping</Link>
+          <div className="row center" style={{ justifyContent: 'center' }}>
+            <Link className="btn primary" to="/tickets">
+              View my tickets
+            </Link>
+            <Link className="btn" to="/orders">
+              My orders
+            </Link>
+            <Link className="btn ghost" to="/marketplace">
+              Continue shopping
+            </Link>
           </div>
         </div>
       </section>
     );
   }
 
+  const expired = order.holdExpiresAt
+    ? new Date(order.holdExpiresAt).getTime() - nowTick <= 0
+    : false;
+  const remainMs = order.holdExpiresAt
+    ? new Date(order.holdExpiresAt).getTime() - nowTick
+    : 0;
+  const m = Math.floor(remainMs / 60000);
+  const s = Math.floor((remainMs % 60000) / 1000);
+
   return (
     <section className="page narrow">
-      <h1>Checkout</h1>
-      <Link className="muted" style={{ display: 'inline-block', marginBottom: '1rem' }} to="/marketplace">
-        ← Back to marketplace
-      </Link>
+      <PageHeader
+        title="Checkout"
+        subtitle="Review your order, apply a promo, and complete payment securely."
+      />
 
-      <div className="card" style={{ marginBottom: '1.25rem', borderTop: '4px solid #6d28d9' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--gradient-soft)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>🎟️</div>
+      {expired && (
+        <Alert kind="danger" title="Hold expired — inventory released">
+          The reservation has expired. <Link to="/marketplace">Check availability again</Link>.
+        </Alert>
+      )}
+
+      <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: 'var(--gradient-soft)',
+              color: 'var(--primary-700)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+            }}
+          >
+            🎟️
+          </div>
           <div>
             <h3 style={{ margin: 0 }}>{order.productTitle}</h3>
-            <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+            <p className="muted fs-sm" style={{ margin: 0 }}>
               {order.providerName} · {order.productType} · Qty {order.quantity}
             </p>
           </div>
         </div>
-        <table className="table">
-          <tbody>
-            <tr><td>Base</td><td className="currency">{order.currencyIso} {fmt(order.baseAmount)}</td></tr>
-            <tr><td>Tax</td><td className="currency">{order.currencyIso} {fmt(order.taxAmount)}</td></tr>
-            <tr><td>Service fee</td><td className="currency">{order.currencyIso} {fmt(order.serviceFee)}</td></tr>
-            <tr><td>Discount</td><td className="currency">-{order.currencyIso} {fmt(order.discountAmount)}</td></tr>
-            <tr>
-              <td><strong>Total</strong></td>
-              <td className="currency"><strong>{order.currencyIso} {fmt(order.totalAmount)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-        <p className="muted" style={{ marginTop: '0.5rem' }}>
-          Order <span className="tag">{order.orderRef}</span> ·{' '}
-          <span className="badge open">Pending payment</span>
-          {order.holdExpiresAt && (() => {
-            const remainMs = new Date(order.holdExpiresAt).getTime() - nowTick;
-            const expired = remainMs <= 0 || order.status === 'EXPIRED';
-            if (expired) return <span className="badge blocked" style={{ marginLeft: '0.5rem' }}>Hold expired — inventory released</span>;
-            const m = Math.floor(remainMs / 60000);
-            const s = Math.floor((remainMs % 60000) / 1000);
-            return <span className="badge pending" style={{ marginLeft: '0.5rem' }}>Reserve expires in {m}:{String(s).padStart(2,'0')}</span>;
-          })()}
+
+        <div className="divider" />
+
+        <div className="stack">
+          <div className="summary-row">
+            <span className="muted">Base</span>
+            <Currency amount={order.baseAmount} currency={order.currencyIso} />
+          </div>
+          <div className="summary-row">
+            <span className="muted">Tax</span>
+            <Currency amount={order.taxAmount} currency={order.currencyIso} />
+          </div>
+          <div className="summary-row">
+            <span className="muted">Service fee</span>
+            <Currency amount={order.serviceFee} currency={order.currencyIso} />
+          </div>
+          {order.discountAmount > 0 && (
+            <div className="summary-row text-success">
+              <span>Discount</span>
+              <span>
+                −<Currency amount={order.discountAmount} currency={order.currencyIso} />
+              </span>
+            </div>
+          )}
+          <div className="summary-row total">
+            <span>Total</span>
+            <Currency amount={order.totalAmount} currency={order.currencyIso} />
+          </div>
+        </div>
+
+        <p
+          className="muted fs-sm"
+          style={{ marginTop: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+        >
+          <span>Order <code className="tag">{order.orderRef}</code></span>
+          <span className="badge info">Pending payment</span>
+          {order.holdExpiresAt && !expired && (
+            <span className="badge warn">
+              ⏱ Hold expires in {m}:{String(s).padStart(2, '0')}
+            </span>
+          )}
         </p>
-        {order.holdExpiresAt && new Date(order.holdExpiresAt).getTime() - nowTick <= 0 && (
-          <p className="error">This hold has expired. <Link to="/marketplace">Check availability again</Link> — your form data is preserved.</p>
-        )}
       </div>
 
-      <div className="card" style={{ borderTop: '4px solid #7c3aed' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--gradient-soft)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>💳</div>
-          <h3 style={{ margin: 0 }}>Payment details</h3>
-        </div>
-        <form className="form" onSubmit={(e) => void submit(e)}>
+      <div className="card" style={{ borderTop: '4px solid var(--primary)' }}>
+        <h3 style={{ marginBottom: 'var(--space-4)' }}>💳 Payment details</h3>
+        <form className="form" onSubmit={(e) => void submit(e)} noValidate>
           <div className="field">
             <label htmlFor="cardType">Card type</label>
-            <select id="cardType" value={cardType} onChange={(e) => setCardType(e.target.value)}>
-              {CARD_TYPES.map((c) => <option key={c} value={c}>{c}</option>)}
+            <select
+              id="cardType"
+              value={cardType}
+              onChange={(e) => setCardType(e.target.value)}
+            >
+              {CARD_TYPES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
           <div className="field">
             <label htmlFor="cardName">Name on card</label>
-            <input id="cardName" required value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Full name" autoComplete="cc-name" />
+            <input
+              id="cardName"
+              required
+              value={cardName}
+              onChange={(e) => setCardName(e.target.value)}
+              placeholder="As shown on the card"
+              autoComplete="cc-name"
+            />
           </div>
           <div className="field">
             <label htmlFor="cardNumber">Card number</label>
-            <input id="cardNumber" required value={cardNumber} onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ''))} placeholder="4242 4242 4242 4242" inputMode="numeric" maxLength={16} autoComplete="cc-number" />
+            <input
+              id="cardNumber"
+              required
+              value={cardNumber}
+              onChange={(e) =>
+                setCardNumber(
+                  e.target.value
+                    .replace(/\D/g, '')
+                    .slice(0, 16)
+                    .replace(/(.{4})/g, '$1 ')
+                    .trim(),
+                )
+              }
+              placeholder="4242 4242 4242 4242"
+              inputMode="numeric"
+              autoComplete="cc-number"
+              maxLength={19}
+            />
           </div>
           <div className="row">
             <div className="field">
               <label htmlFor="expiry">Expiry (MM/YY)</label>
-              <input id="expiry" required value={expiry} onChange={(e) => setExpiry(e.target.value)} placeholder="MM/YY" maxLength={5} autoComplete="cc-exp" />
+              <input
+                id="expiry"
+                required
+                value={expiry}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setExpiry(v.length >= 3 ? `${v.slice(0, 2)}/${v.slice(2)}` : v);
+                }}
+                placeholder="MM/YY"
+                maxLength={5}
+                autoComplete="cc-exp"
+              />
             </div>
             <div className="field">
               <label htmlFor="cvv">CVV</label>
-              <input id="cvv" required type="password" value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))} placeholder="123" maxLength={4} autoComplete="cc-csc" />
+              <input
+                id="cvv"
+                required
+                type="password"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="123"
+                maxLength={4}
+                autoComplete="cc-csc"
+              />
             </div>
           </div>
-          {payError && <p className="error">{payError}</p>}
-          {(() => {
-            const expired = order.holdExpiresAt ? new Date(order.holdExpiresAt).getTime() - nowTick <= 0 : false;
-            return (
-              <button className="btn primary" type="submit" disabled={paying || expired}>
-                {expired ? 'Hold expired' : paying ? 'Processing…' : `Pay ${order.currencyIso} ${fmt(order.totalAmount)}`}
-              </button>
-            );
-          })()}
-          <p className="muted" style={{ fontSize: '0.8rem' }}>
-            Demo checkout — payment is simulated. No real card is charged.
+
+          {payError && (
+            <Alert kind="danger" title="Payment failed">
+              {payError}
+            </Alert>
+          )}
+
+          <button
+            className="btn primary block lg"
+            type="submit"
+            disabled={paying || expired}
+            aria-busy={paying}
+          >
+            {expired ? (
+              'Hold expired'
+            ) : paying ? (
+              <>
+                <span className="spinner" />
+                Processing…
+              </>
+            ) : (
+              `🔒 Pay ${order.currencyIso} ${Number(order.totalAmount).toFixed(2)}`
+            )}
+          </button>
+
+          <p className="muted fs-xs text-center" style={{ margin: 0 }}>
+            🔒 Demo checkout — payment is simulated. No real card is charged. In
+            production, this is a PCI-aware flow with tokenization.
           </p>
         </form>
       </div>

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApi } from '../context/ApiContext';
 import { Link } from 'react-router-dom';
+import {
+  Alert,
+  Currency,
+  EmptyState,
+  PageHeader,
+  StatCard,
+} from '../components/UI';
 
 interface DomainStat {
   productType: string;
@@ -22,6 +29,25 @@ interface AnalystAnswer {
   data: Record<string, unknown>;
 }
 
+const SUGGESTIONS = [
+  'Which product domain generates the most revenue?',
+  'How many orders did we get this period?',
+  'What is the average order value?',
+  'Which provider has the most orders?',
+];
+
+function domainIcon(type: string): string {
+  switch (type) {
+    case 'ROUTE': return '🚌';
+    case 'ADMISSION': return '🎟️';
+    case 'SERVICE': return '🛎️';
+    case 'SEAT': return '💺';
+    case 'PACKAGE': return '📦';
+    case 'TICKET': return '🎫';
+    default: return '📊';
+  }
+}
+
 export default function AnalyticsPage() {
   const { api, authenticated } = useApi();
   const [trend, setTrend] = useState<TrendReport | null>(null);
@@ -32,12 +58,13 @@ export default function AnalyticsPage() {
   const [answer, setAnswer] = useState<AnalystAnswer | null>(null);
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
+  const [history, setHistory] = useState<AnalystAnswer[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<TrendReport>('/analytics/trend?tenantId=1');
+      const data = await api.get<TrendReport>('/analytics/trend');
       setTrend(data ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load analytics');
@@ -51,16 +78,16 @@ export default function AnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated]);
 
-  const ask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
+  const ask = async (q?: string) => {
+    const text = (q ?? question).trim();
+    if (!text) return;
+    setQuestion(text);
     setAsking(true);
     setAskError(null);
     try {
-      const data = await api.post<AnalystAnswer>('/analytics/ask', {
-        question: question.trim(),
-      });
+      const data = await api.post<AnalystAnswer>('/analytics/ask', { question: text });
       setAnswer(data ?? null);
+      if (data) setHistory((h) => [data, ...h].slice(0, 6));
     } catch (err) {
       setAskError(err instanceof Error ? err.message : 'Failed to get an answer');
     } finally {
@@ -71,104 +98,225 @@ export default function AnalyticsPage() {
   if (!authenticated) {
     return (
       <section className="page">
-        <h1>Analytics</h1>
-        <p className="muted">Sign in to view tenant analytics and ask the data analyst.</p>
-        <Link className="btn primary" to="/login">
-          Sign in
-        </Link>
+        <PageHeader title="Analytics" subtitle="Tenant revenue intelligence and an AI data analyst." />
+        <EmptyState
+          icon="📊"
+          title="Sign in to view analytics"
+          description="Trends, revenue by domain, and an AI data analyst are scoped to your account."
+          action={<Link className="btn primary" to="/login">Sign in</Link>}
+        />
       </section>
     );
   }
 
-  const fmt = (n: number | undefined | null) =>
-    n == null ? '—' : Number(n).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+  const maxRevenue = Math.max(1, ...(trend?.domains?.map((d) => d.revenue) ?? [1]));
 
   return (
     <section className="page">
-      <h1>Analytics</h1>
-      <p className="muted">
-        Tenant revenue intelligence across every product domain, plus a
-        natural-language data analyst.
-      </p>
-      {error && <p className="error">{error}</p>}
-      {loading && <p className="muted">Loading analytics…</p>}
+      <PageHeader
+        title="Analytics"
+        subtitle="Tenant revenue intelligence across every product domain, plus a natural-language data analyst."
+        actions={
+          <button
+            className="btn"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-busy={loading}
+          >
+            {loading ? <span className="spinner" /> : '↻'} Refresh
+          </button>
+        }
+      />
+
+      {error && <Alert kind="danger">{error}</Alert>}
+
+      {loading && !trend && (
+        <div className="grid">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="card skeleton-card" />
+          ))}
+        </div>
+      )}
 
       {trend && (
         <>
           <div className="stats">
-            <div className="stat card">
-              <span className="value">{trend.totalOrders}</span>
-              <span className="label">Total orders</span>
+            <StatCard
+              label="Total orders"
+              value={trend.totalOrders.toLocaleString()}
+              icon="🧾"
+            />
+            <StatCard
+              label="Total revenue"
+              value={Number(trend.totalRevenue).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}
+              icon="💰"
+              variant="success"
+            />
+            <StatCard
+              label="Average order value"
+              value={Number(trend.averageOrderValue).toLocaleString(undefined, {
+                maximumFractionDigits: 0,
+              })}
+              icon="📈"
+              variant="violet"
+            />
+          </div>
+
+          <div className="grid-2" style={{ marginTop: 'var(--space-4)' }}>
+            <div className="card">
+              <h2 style={{ marginBottom: 'var(--space-3)' }}>Revenue by product domain</h2>
+              {trend.domains.length === 0 ? (
+                <p className="muted">No domain data recorded yet.</p>
+              ) : (
+                <div className="stack">
+                  {trend.domains
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .map((d) => {
+                      const pct = Math.round((d.revenue / maxRevenue) * 100);
+                      return (
+                        <div key={d.productType}>
+                          <div className="row between" style={{ marginBottom: 4 }}>
+                            <span style={{ fontWeight: 600 }}>
+                              {domainIcon(d.productType)} {d.productType}
+                            </span>
+                            <span className="muted fs-sm">
+                              {d.orderCount} orders ·{' '}
+                              <Currency amount={d.revenue} />
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              height: 8,
+                              borderRadius: 4,
+                              background: 'var(--surface-3)',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${pct}%`,
+                                height: '100%',
+                                background: 'var(--gradient)',
+                                transition: 'width 0.4s',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
-            <div className="stat card">
-              <span className="value">{fmt(trend.totalRevenue)}</span>
-              <span className="label">Total revenue</span>
-            </div>
-            <div className="stat card">
-              <span className="value">{fmt(trend.averageOrderValue)}</span>
-              <span className="label">Average order value</span>
+
+            <div className="card" style={{ background: 'var(--gradient-soft)', borderColor: 'transparent' }}>
+              <h2 style={{ marginBottom: 'var(--space-3)' }}>
+                🤖 Ask the data analyst
+              </h2>
+              <p className="muted fs-sm" style={{ marginBottom: 'var(--space-3)' }}>
+                Plain-language questions about your sales data, answered with the
+                underlying numbers.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void ask();
+                }}
+                className="stack"
+              >
+                <textarea
+                  rows={2}
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="e.g. Which provider has the most orders?"
+                />
+                <button className="btn primary" type="submit" disabled={asking || !question.trim()}>
+                  {asking ? (
+                    <>
+                      <span className="spinner" />
+                      Analysing…
+                    </>
+                  ) : (
+                    'Ask'
+                  )}
+                </button>
+              </form>
+
+              {askError && (
+                <Alert kind="danger" title="Could not analyse">
+                  {askError}
+                </Alert>
+              )}
+
+              <div className="stack tight" style={{ marginTop: 'var(--space-3)' }}>
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    className="chip"
+                    style={{ justifyContent: 'flex-start' }}
+                    onClick={() => void ask(s)}
+                    disabled={asking}
+                  >
+                    💡 {s}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <h2>Revenue by product domain</h2>
-          {trend.domains.length === 0 ? (
-            <p className="muted">No domain data recorded yet.</p>
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Product type</th>
-                  <th>Order count</th>
-                  <th>Revenue</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trend.domains.map((d) => (
-                  <tr key={d.productType}>
-                    <td>
-                      <span className="tag">{d.productType}</span>
-                    </td>
-                    <td>{d.orderCount}</td>
-                    <td className="currency">{fmt(d.revenue)}</td>
-                  </tr>
+          {answer && (
+            <div className="card" style={{ marginTop: 'var(--space-4)' }}>
+              <div className="row between center" style={{ marginBottom: 'var(--space-3)' }}>
+                <h3 style={{ margin: 0 }}>💡 {answer.question}</h3>
+                <span className="tag">latest</span>
+              </div>
+              <p style={{ margin: 0 }}>{answer.answer}</p>
+              {Object.keys(answer.data ?? {}).length > 0 && (
+                <details style={{ marginTop: 'var(--space-3)' }}>
+                  <summary className="muted fs-sm" style={{ cursor: 'pointer' }}>
+                    View underlying data
+                  </summary>
+                  <pre
+                    style={{
+                      background: 'var(--surface-2)',
+                      padding: 'var(--space-3)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.8rem',
+                      overflow: 'auto',
+                      marginTop: 'var(--space-2)',
+                    }}
+                  >
+                    {JSON.stringify(answer.data, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
+
+          {history.length > 1 && (
+            <>
+              <div className="section-title">
+                <h2>Recent questions</h2>
+                <button className="link" onClick={() => setHistory([])}>
+                  Clear
+                </button>
+              </div>
+              <div className="stack">
+                {history.slice(1).map((h, i) => (
+                  <details key={i} className="card compact">
+                    <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                      {h.question}
+                    </summary>
+                    <p style={{ margin: '0.5rem 0 0' }} className="muted fs-sm">
+                      {h.answer}
+                    </p>
+                  </details>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </>
-      )}
-
-      <h2 style={{ marginTop: '2rem' }}>Ask the data analyst</h2>
-      <p className="muted">
-        Ask a question in plain language, e.g. "Which product domain generates the
-        most revenue?"
-      </p>
-      <form className="search" onSubmit={(e) => void ask(e)}>
-        <textarea
-          rows={2}
-          value={question}
-          placeholder="Ask anything about your sales data…"
-          onChange={(e) => setQuestion(e.target.value)}
-        />
-        <button className="btn primary" type="submit" disabled={asking}>
-          {asking ? 'Analysing…' : 'Ask'}
-        </button>
-      </form>
-      {askError && <p className="error">{askError}</p>}
-
-      {answer && (
-        <div className="card" style={{ backgroundColor: '#f8fafc' }}>
-          <h3>{answer.question}</h3>
-          <p>{answer.answer}</p>
-          {Object.keys(answer.data).length > 0 && (
-            <p className="muted">
-              <strong>Data:</strong> {JSON.stringify(answer.data)}
-            </p>
-          )}
-        </div>
       )}
     </section>
   );

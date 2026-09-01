@@ -2,9 +2,7 @@ package com.ticketmesh.controller;
 
 import com.ticketmesh.exception.NotFoundException;
 import com.ticketmesh.model.ProductOrder;
-import com.ticketmesh.model.User;
-import com.ticketmesh.repository.UserRepository;
-import com.ticketmesh.security.CurrentUser;
+import com.ticketmesh.security.TenantGuard;
 import com.ticketmesh.service.ProductOrderService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -31,19 +29,16 @@ import java.util.List;
 public class ProductOrderController {
 
     private final ProductOrderService orderService;
-    private final UserRepository userRepository;
-    private final CurrentUser currentUser;
+    private final TenantGuard tenantGuard;
 
     public ProductOrderController(ProductOrderService orderService,
-                                  UserRepository userRepository,
-                                  CurrentUser currentUser) {
+                                  TenantGuard tenantGuard) {
         this.orderService = orderService;
-        this.userRepository = userRepository;
-        this.currentUser = currentUser;
+        this.tenantGuard = tenantGuard;
     }
 
     record CreateOrderRequest(
-            @NotNull Long tenantId,
+            Long tenantId,
             @NotNull Long productId,
             @Min(1) int quantity,
             String promoCode) {
@@ -51,15 +46,17 @@ public class ProductOrderController {
 
     @PostMapping
     public ResponseEntity<ProductOrder> create(@Valid @RequestBody CreateOrderRequest request) {
+        Long effectiveTenantId = tenantGuard.requireAccessTo(request.tenantId());
         ProductOrder order = orderService.create(
-                request.tenantId(), request.productId(), request.quantity(), request.promoCode());
+                effectiveTenantId, request.productId(), request.quantity(), request.promoCode());
         return ResponseEntity.ok(order);
     }
 
     @PostMapping("/checkout")
     public ResponseEntity<ProductOrder> checkout(@Valid @RequestBody CreateOrderRequest request) {
+        Long effectiveTenantId = tenantGuard.requireAccessTo(request.tenantId());
         ProductOrder order = orderService.checkout(
-                request.tenantId(), request.productId(), request.quantity(), request.promoCode());
+                effectiveTenantId, request.productId(), request.quantity(), request.promoCode());
         return ResponseEntity.ok(order);
     }
 
@@ -81,13 +78,9 @@ public class ProductOrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductOrder>> byTenant(@RequestParam("tenantId") Long tenantId) {
-        User user = userRepository.findByUsername(currentUser.username())
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
-        Long myTenant = user.getTenantId();
-        if (myTenant != null && myTenant.equals(tenantId)) {
-            return ResponseEntity.ok(orderService.byTenant(tenantId));
-        }
-        throw new NotFoundException("Not authorized for tenant: " + tenantId);
+    public ResponseEntity<List<ProductOrder>> byTenant(
+            @RequestParam(value = "tenantId", required = false) Long tenantId) {
+        Long effectiveTenantId = tenantGuard.requireAccessTo(tenantId);
+        return ResponseEntity.ok(orderService.byTenant(effectiveTenantId));
     }
 }

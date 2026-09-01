@@ -3,6 +3,7 @@ package com.ticketmesh.controller;
 import com.ticketmesh.dto.CatalogSearchResult;
 import com.ticketmesh.dto.ProductRequest;
 import com.ticketmesh.dto.ProductResponse;
+import com.ticketmesh.security.TenantGuard;
 import com.ticketmesh.service.CatalogService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -23,9 +24,11 @@ import java.util.List;
 public class CatalogController {
 
     private final CatalogService catalogService;
+    private final TenantGuard tenantGuard;
 
-    public CatalogController(CatalogService catalogService) {
+    public CatalogController(CatalogService catalogService, TenantGuard tenantGuard) {
         this.catalogService = catalogService;
+        this.tenantGuard = tenantGuard;
     }
 
     @PostMapping("/agent/providers/{code}/products")
@@ -55,9 +58,10 @@ public class CatalogController {
 
     @GetMapping("/catalog")
     public ResponseEntity<List<ProductResponse>> search(
-            @RequestParam("tenantId") Long tenantId,
+            @RequestParam(value = "tenantId", required = false) Long tenantId,
             @RequestParam(value = "type", required = false) String productType) {
-        return ResponseEntity.ok(catalogService.searchCustomer(tenantId, productType));
+        Long effectiveTenantId = tenantGuard.requireAccessTo(tenantId);
+        return ResponseEntity.ok(catalogService.searchCustomer(effectiveTenantId, productType));
     }
 
     @GetMapping("/catalog/search")
@@ -69,5 +73,21 @@ public class CatalogController {
     @GetMapping("/catalog/{id}")
     public ResponseEntity<ProductResponse> getById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(catalogService.getById(id));
+    }
+
+    /**
+     * Movies endpoint — only ADMISSION products with movie metadata.
+     * Supports filters by language, genre, format, and section (now_showing / coming_soon / premieres).
+     */
+    @GetMapping("/movies")
+    public ResponseEntity<List<ProductResponse>> movies(
+            @RequestParam(value = "tenantId", required = false) Long tenantId,
+            @RequestParam(value = "language", required = false) String language,
+            @RequestParam(value = "genre", required = false) String genre,
+            @RequestParam(value = "format", required = false) String format,
+            @RequestParam(value = "section", required = false) String section) {
+        Long effectiveTenantId = tenantGuard.requireAccessTo(tenantId);
+        return ResponseEntity.ok(
+                catalogService.listMovies(effectiveTenantId, language, genre, format, section));
     }
 }

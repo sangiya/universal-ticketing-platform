@@ -2,6 +2,9 @@ package com.ticketmesh.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -37,6 +40,30 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ErrorResponse> handleSecurity(SecurityException ex,
+                                                       HttpServletRequest request) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex,
+                                                              HttpServletRequest request) {
+        return build(HttpStatus.UNAUTHORIZED, "Invalid username or password", request);
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameNotFound(UsernameNotFoundException ex,
+                                                                HttpServletRequest request) {
+        return build(HttpStatus.UNAUTHORIZED, "Invalid username or password", request);
+    }
+
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ErrorResponse> handleLocked(LockedException ex,
+                                                       HttpServletRequest request) {
+        return build(HttpStatus.LOCKED, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex,
                                                           HttpServletRequest request) {
@@ -54,6 +81,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex,
                                                             HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex,
+                                                              HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(Exception.class)

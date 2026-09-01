@@ -8,16 +8,70 @@ on:
 
 jobs:
   build:
+    name: Build & Test (H2 in-memory)
     runs-on: ubuntu-latest
-
+    services:
+      # MySQL 8.0 used by Testcontainers integration tests
+      mysql:
+        image: mysql:8.0.32
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: ticketmesh_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+      - name: Compile
+        run: mvn -B -q compile
+      - name: Unit + Architecture + WireMock tests
+        run: mvn -B -q test -Dtest='!TestcontainersDatabaseIT,!RestApiContractIT'
+      - name: Integration tests (Testcontainers + REST Assured)
+        # Use the service MySQL container for Testcontainers
+        run: mvn -B -q test -Dtest='TestcontainersDatabaseIT,RestApiContractIT'
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+      - name: Verify coverage gates
+        run: mvn -B verify
 
-      - name: Test
-        run: mvn -B test
+  architecture:
+    name: ArchUnit Architecture Fitness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Run ArchUnit
+        run: mvn -B test -Dtest=ArchitectureRulesTest
+
+  quality:
+    name: Code Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build artifact
+        run: mvn -B package -DskipTests
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticketmesh-core
+          path: target/ticketmesh-core-*.jar

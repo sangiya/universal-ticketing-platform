@@ -66,7 +66,7 @@ class FullFlowIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         JsonNode node = objectMapper.readTree(resp);
-        token = node.get("token").asText();
+        token = node.get("accessToken").asText();
         org.junit.jupiter.api.Assertions.assertTrue(token.length() > 20,
                 "JWT token should be non-trivial");
     }

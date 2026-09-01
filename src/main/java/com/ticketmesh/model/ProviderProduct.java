@@ -99,6 +99,85 @@ public class ProviderProduct {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    // ── Offer / deal flags ──
+    // When is_offer = true the product is a time-limited special deal and
+    // appears in the Offers section of the home page. Original price + deal
+    // pricing are stored inline to avoid a second table.
+    @Column(name = "is_offer", nullable = false)
+    private boolean isOffer = false;
+
+    @Column(name = "original_price", precision = 12, scale = 2)
+    private java.math.BigDecimal originalPrice;
+
+    @Column(name = "discount_percent")
+    private Integer discountPercent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deal_type", length = 20)
+    private DealType dealType;
+
+    @Size(max = 40)
+    @Column(name = "deal_tag", length = 40)
+    private String dealTag;
+
+    @Column(name = "deal_valid_until")
+    private Instant dealValidUntil;
+
+    @Column(name = "deal_seats")
+    private Integer dealSeats;
+
+    @Size(max = 500)
+    @Column(name = "thumbnail_url", length = 500)
+    private String thumbnailUrl;
+
+    // ── Movie / event metadata ──
+    @Size(max = 40)
+    @Column(length = 40)
+    private String language;
+
+    @Size(max = 120)
+    @Column(length = 120)
+    private String genre;
+
+    @Size(max = 40)
+    @Column(length = 40)
+    private String format;       // 2D, 3D, IMAX, 4DX, ATMOS
+
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
+    @Column(name = "rating_stars", precision = 2, scale = 1)
+    private java.math.BigDecimal ratingStars;
+
+    @Size(max = 500)
+    @Column(name = "cast_list", length = 500)
+    private String castList;
+
+    @Size(max = 160)
+    @Column(length = 160)
+    private String director;
+
+    @Column(name = "release_date")
+    private java.time.LocalDate releaseDate;
+
+    @Size(max = 500)
+    @Column(name = "poster_url", length = 500)
+    private String posterUrl;
+
+    @Size(max = 500)
+    @Column(name = "banner_url", length = 500)
+    private String bannerUrl;
+
+    @Column(name = "is_premiere", nullable = false)
+    private boolean isPremiere = false;
+
+    @Column(name = "is_now_showing", nullable = false)
+    private boolean isNowShowing = true;
+
+    @Size(max = 200)
+    @Column(length = 200)
+    private String tagline;
+
     public ProviderProduct() {
     }
 
@@ -263,4 +342,76 @@ public class ProviderProduct {
         ADMISSION,
         PACKAGE
     }
+
+    public enum DealType {
+        FLAT_OFF,
+        PERCENTAGE_OFF,
+        BUY_X_GET_Y,
+        FLASH_SALE
+    }
+
+    // ── Offer/deal getters and setters ──
+
+    public boolean isOffer() { return isOffer; }
+    public void setOffer(boolean offer) { isOffer = offer; }
+
+    public java.math.BigDecimal getOriginalPrice() { return originalPrice; }
+    public void setOriginalPrice(java.math.BigDecimal originalPrice) { this.originalPrice = originalPrice; }
+
+    public Integer getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(Integer discountPercent) { this.discountPercent = discountPercent; }
+
+    public DealType getDealType() { return dealType; }
+    public void setDealType(DealType dealType) { this.dealType = dealType; }
+
+    public String getDealTag() { return dealTag; }
+    public void setDealTag(String dealTag) { this.dealTag = dealTag; }
+
+    public Instant getDealValidUntil() { return dealValidUntil; }
+    public void setDealValidUntil(Instant dealValidUntil) { this.dealValidUntil = dealValidUntil; }
+
+    public Integer getDealSeats() { return dealSeats; }
+    public void setDealSeats(Integer dealSeats) { this.dealSeats = dealSeats; }
+
+    public String getThumbnailUrl() { return thumbnailUrl; }
+    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
+    public String getGenre() { return genre; }
+    public void setGenre(String genre) { this.genre = genre; }
+
+    public String getFormat() { return format; }
+    public void setFormat(String format) { this.format = format; }
+
+    public Integer getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+
+    public java.math.BigDecimal getRatingStars() { return ratingStars; }
+    public void setRatingStars(java.math.BigDecimal ratingStars) { this.ratingStars = ratingStars; }
+
+    public String getCastList() { return castList; }
+    public void setCastList(String castList) { this.castList = castList; }
+
+    public String getDirector() { return director; }
+    public void setDirector(String director) { this.director = director; }
+
+    public java.time.LocalDate getReleaseDate() { return releaseDate; }
+    public void setReleaseDate(java.time.LocalDate releaseDate) { this.releaseDate = releaseDate; }
+
+    public String getPosterUrl() { return posterUrl; }
+    public void setPosterUrl(String posterUrl) { this.posterUrl = posterUrl; }
+
+    public String getBannerUrl() { return bannerUrl; }
+    public void setBannerUrl(String bannerUrl) { this.bannerUrl = bannerUrl; }
+
+    public boolean isPremiere() { return isPremiere; }
+    public void setPremiere(boolean premiere) { isPremiere = premiere; }
+
+    public boolean isNowShowing() { return isNowShowing; }
+    public void setNowShowing(boolean nowShowing) { isNowShowing = nowShowing; }
+
+    public String getTagline() { return tagline; }
+    public void setTagline(String tagline) { this.tagline = tagline; }
 }

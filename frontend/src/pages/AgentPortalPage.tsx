@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApi } from '../context/ApiContext';
 import { Link } from 'react-router-dom';
+import {
+  Alert,
+  EmptyState,
+  Modal,
+  PageHeader,
+  SectionTitle,
+  Skeleton,
+  StatCard,
+} from '../components/UI';
+import { useToast } from '../components/Toast';
+import { detectLocale } from '../utils/locale';
 
 interface Shop {
   id: number;
@@ -90,20 +101,41 @@ interface ProductForm {
   providerCode: string;
 }
 
-const PRODUCT_TYPES = ['TICKET', 'SERVICE', 'SEAT', 'ROUTE', 'ADMISSION', 'PACKAGE'];
+const PRODUCT_TYPES = [
+  { key: 'TICKET', icon: '🎫' },
+  { key: 'SERVICE', icon: '🛎️' },
+  { key: 'SEAT', icon: '💺' },
+  { key: 'ROUTE', icon: '🚌' },
+  { key: 'ADMISSION', icon: '🎟️' },
+  { key: 'PACKAGE', icon: '📦' },
+];
 
 const AUTH_MODES = ['API_KEY', 'OAUTH2', 'BASIC'];
 
-const VERTICALS = ['BUS', 'TRAIN', 'MOVIE', 'EVENT', 'SPORTS', 'FLIGHT', 'FERRY', 'ATTRACTION', 'OTHER'];
+const VERTICALS = [
+  { key: 'BUS', icon: '🚌' },
+  { key: 'TRAIN', icon: '🚆' },
+  { key: 'MOVIE', icon: '🎬' },
+  { key: 'EVENT', icon: '🎤' },
+  { key: 'SPORTS', icon: '⚽' },
+  { key: 'FLIGHT', icon: '✈️' },
+  { key: 'FERRY', icon: '⛴️' },
+  { key: 'ATTRACTION', icon: '🎢' },
+  { key: 'OTHER', icon: '🔖' },
+];
+
+const BUSINESS_TYPES = ['Retailer', 'Aggregator', 'Operator', 'Reseller', 'Marketplace'];
 
 const EMPTY_PROVIDER: ProviderForm = {
   code: '',
   name: '',
   apiEndpoint: '',
   authMode: 'API_KEY',
-  vertical: 'TRAIN',
+  vertical: 'OTHER',
   capabilities: '',
 };
+
+const LOCALE_DEFAULTS = detectLocale();
 
 const EMPTY_PRODUCT: ProductForm = {
   productType: 'TICKET',
@@ -112,14 +144,42 @@ const EMPTY_PRODUCT: ProductForm = {
   destination: '',
   eventDate: '',
   price: '',
-  currencyIso: 'LKR',
+  currencyIso: LOCALE_DEFAULTS.currencyIso,
   availableQuantity: '1',
   description: '',
   providerCode: '',
 };
 
+const EMPTY_SHOP: ShopForm = {
+  shopName: '',
+  businessType: BUSINESS_TYPES[0],
+  countryIso: LOCALE_DEFAULTS.countryIso,
+  currencyIso: LOCALE_DEFAULTS.currencyIso,
+  about: '',
+  contactEmail: '',
+  contactPhone: '',
+};
+
+function statusVariant(s: string): string {
+  const v = s.toLowerCase();
+  if (v === 'active' || v === 'approved' || v === 'enabled') return 'success';
+  if (v === 'pending' || v === 'submitted' || v === 'in_review') return 'warn';
+  if (v === 'rejected' || v === 'suspended' || v === 'disabled' || v === 'blocked') return 'danger';
+  return 'info';
+}
+
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
 export default function AgentPortalPage() {
   const { api, authenticated } = useApi();
+  const { push } = useToast();
+
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopLoading, setShopLoading] = useState(true);
   const [shopError, setShopError] = useState<string | null>(null);
@@ -133,15 +193,7 @@ export default function AgentPortalPage() {
   const [connecting, setConnecting] = useState(false);
   const [providerMessage, setProviderMessage] = useState<string | null>(null);
 
-  const [shopForm, setShopForm] = useState<ShopForm>({
-    shopName: '',
-    businessType: 'Retailer',
-    countryIso: 'LK',
-    currencyIso: 'LKR',
-    about: '',
-    contactEmail: '',
-    contactPhone: '',
-  });
+  const [shopForm, setShopForm] = useState<ShopForm>(EMPTY_SHOP);
   const [applying, setApplying] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
@@ -151,9 +203,13 @@ export default function AgentPortalPage() {
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
 
-  const [brandingTarget, setBrandingTarget] = useState<string | null>(null);
+  const [brandingTarget, setBrandingTarget] = useState<Provider | null>(null);
   const [brandingForm, setBrandingForm] = useState({
-    logoUrl: '', themeColor: '#0b3b60', secondaryColor: '', tagline: '', bannerUrl: '',
+    logoUrl: '',
+    themeColor: '#0b3b60',
+    secondaryColor: '',
+    tagline: '',
+    bannerUrl: '',
   });
   const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMsg, setBrandingMsg] = useState<string | null>(null);
@@ -176,6 +232,7 @@ export default function AgentPortalPage() {
     try {
       const data = await api.get<unknown[]>('/agent/products');
       setProducts((data as unknown as Product[]) ?? []);
+      setProductsError(null);
     } catch (e) {
       setProductsError(e instanceof Error ? e.message : 'Failed to load products');
     }
@@ -213,14 +270,16 @@ export default function AgentPortalPage() {
     setApplying(true);
     setApplyMessage(null);
     try {
-      const created = await api.post<Shop>('/agent/shops?tenant=tickets', shopForm);
+      const created = await api.post<Shop>('/agent/shops', shopForm);
       setShop(created ?? null);
-      setApplyMessage('Shop application submitted.');
+      setApplyMessage('Shop application submitted for review.');
+      push('Shop application submitted', 'success');
+      setShopForm(EMPTY_SHOP);
       void loadProducts();
     } catch (err) {
-      setApplyMessage(
-        err instanceof Error ? err.message : 'Failed to submit shop application'
-      );
+      const msg = err instanceof Error ? err.message : 'Failed to submit shop application';
+      setApplyMessage(msg);
+      push(msg, 'error');
     } finally {
       setApplying(false);
     }
@@ -240,29 +299,28 @@ export default function AgentPortalPage() {
         capabilities: providerForm.capabilities || undefined,
       };
       await api.post<Provider>('/agent/providers', body);
-      setProviderMessage(
-        `Provider "${providerForm.code}" connected successfully.`
-      );
+      setProviderMessage(`Provider "${providerForm.code}" connected.`);
+      push(`Provider ${providerForm.code} connected`, 'success');
       setProviderForm(EMPTY_PROVIDER);
       void loadProviders();
     } catch (err) {
-      setProviderMessage(
-        err instanceof Error ? err.message : 'Failed to connect provider'
-      );
+      const msg = err instanceof Error ? err.message : 'Failed to connect provider';
+      setProviderMessage(msg);
+      push(msg, 'error');
     } finally {
       setConnecting(false);
     }
   };
 
   const resetProductForm = () => {
-    setProductForm(EMPTY_PRODUCT);
+    setProductForm({ ...EMPTY_PRODUCT, providerCode: productForm.providerCode });
     setEditingId(null);
     setProductMessage(null);
     setProductError(null);
   };
 
   const openBrandingEditor = (p: Provider) => {
-    setBrandingTarget(p.code);
+    setBrandingTarget(p);
     setBrandingForm({
       logoUrl: p.logoUrl ?? '',
       themeColor: p.themeColor ?? '#0b3b60',
@@ -285,12 +343,15 @@ export default function AgentPortalPage() {
       if (brandingForm.secondaryColor) body.secondaryColor = brandingForm.secondaryColor;
       if (brandingForm.tagline) body.tagline = brandingForm.tagline;
       if (brandingForm.bannerUrl) body.bannerUrl = brandingForm.bannerUrl;
-      await api.put<unknown>(`/agent/providers/${brandingTarget}/branding`, body);
+      await api.put<unknown>(`/agent/providers/${brandingTarget.code}/branding`, body);
       setBrandingMsg('Branding saved.');
+      push('Branding saved', 'success');
       setBrandingTarget(null);
       void loadProviders();
     } catch (err) {
-      setBrandingMsg(err instanceof Error ? err.message : 'Failed to save branding');
+      const msg = err instanceof Error ? err.message : 'Failed to save branding';
+      setBrandingMsg(msg);
+      push(msg, 'error');
     } finally {
       setSavingBranding(false);
     }
@@ -303,10 +364,11 @@ export default function AgentPortalPage() {
       setProducts((prev) =>
         prev.map((p) => (p.id === id ? { ...p, enabled } : p))
       );
+      push(`Product ${enabled ? 'enabled' : 'disabled'}`, 'success');
     } catch (e) {
-      setProductError(
-        e instanceof Error ? e.message : 'Failed to update product'
-      );
+      const msg = e instanceof Error ? e.message : 'Failed to update product';
+      setProductError(msg);
+      push(msg, 'error');
     }
   };
 
@@ -322,7 +384,9 @@ export default function AgentPortalPage() {
       currencyIso: p.currencyIso,
       availableQuantity: String(p.availableQuantity),
       description: p.description ?? '',
-      providerCode: productForm.providerCode,
+      providerCode:
+        providers.find((pr) => pr.id === p.providerId)?.code ??
+        productForm.providerCode,
     });
     setProductMessage(null);
     setProductError(null);
@@ -350,19 +414,21 @@ export default function AgentPortalPage() {
       if (editingId) {
         await api.put<unknown>(`/agent/products/${editingId}`, body);
         setProductMessage('Product updated.');
+        push('Product updated', 'success');
       } else {
         await api.post<unknown>(
           `/agent/providers/${productForm.providerCode}/products`,
           body
         );
         setProductMessage('Product published.');
+        push('Product published', 'success');
       }
       resetProductForm();
       void loadProducts();
     } catch (err) {
-      setProductError(
-        err instanceof Error ? err.message : 'Failed to save product'
-      );
+      const msg = err instanceof Error ? err.message : 'Failed to save product';
+      setProductError(msg);
+      push(msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -371,171 +437,284 @@ export default function AgentPortalPage() {
   if (!authenticated) {
     return (
       <section className="page">
-        <h1>Agent Portal</h1>
-        <p className="muted">Sign in as an agent to run your shop.</p>
-        <Link className="btn primary" to="/login">
-          Sign in
-        </Link>
+        <PageHeader
+          title="Agent Portal"
+          subtitle="Self-service shop management for agents and operators."
+        />
+        <EmptyState
+          icon="🏪"
+          title="Sign in to access your portal"
+          description="Manage your shop, providers, products and branding from one place."
+          action={
+            <Link to="/login" className="btn primary">
+              Sign in
+            </Link>
+          }
+        />
       </section>
     );
   }
 
-  const fmt = (n: number | undefined | null) =>
-    n == null ? '—' : Number(n).toFixed(2);
+  const enabledProducts = products.filter((p) => p.enabled).length;
+  const disabledProducts = products.length - enabledProducts;
+  const activeProviders = providers.filter((p) => p.status === 'ACTIVE').length;
 
   return (
     <section className="page">
-      <h1>Agent Portal</h1>
-      <p className="muted">
-        Self-service shop management: apply to open a shop, publish products and
-        control availability.
-      </p>
+      <PageHeader
+        title="🏪 Agent Portal"
+        subtitle="Run your shop: apply to open one, connect providers, publish products, and customize branding."
+        actions={
+          <button
+            className="btn"
+            onClick={() => {
+              void loadShop();
+              void loadProviders();
+              void loadProducts();
+            }}
+            disabled={shopLoading || providersLoading}
+            aria-busy={shopLoading || providersLoading}
+          >
+            {shopLoading || providersLoading ? <span className="spinner" /> : '↻'} Refresh
+          </button>
+        }
+      />
 
-      {shopLoading && <p className="muted">Loading your shop…</p>}
+      <div className="stats">
+        <StatCard
+          label="My shop"
+          value={shop ? shop.shopName : 'None'}
+          icon="🏪"
+          variant={shop ? 'success' : 'default'}
+        />
+        <StatCard
+          label="Providers"
+          value={providers.length}
+          icon="🔌"
+          variant="info"
+        />
+        <StatCard
+          label="Active providers"
+          value={activeProviders}
+          icon="✓"
+          variant="violet"
+        />
+        <StatCard
+          label="Products"
+          value={products.length}
+          icon="📦"
+          variant="warning"
+        />
+        <StatCard
+          label="Enabled"
+          value={enabledProducts}
+          icon="🟢"
+          variant="success"
+        />
+        <StatCard
+          label="Disabled"
+          value={disabledProducts}
+          icon="⏸"
+          variant="default"
+        />
+      </div>
+
+      {shopError && !shop && !shopLoading && (
+        <Alert kind="info" title="No shop yet">
+          {shopError}. Apply below to get started.
+        </Alert>
+      )}
+
+      {shopLoading && (
+        <div className="card">
+          <Skeleton lines={4} />
+        </div>
+      )}
 
       {!shop && !shopLoading && (
-        <>
-          <h2>Apply to open a shop</h2>
-          {shopError && <p className="error">{shopError}</p>}
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <SectionTitle
+            title="Apply to open a shop"
+            subtitle="Tell us about your business. We'll review your application and respond within 1–2 business days."
+          />
+          {applyMessage && (
+            <Alert
+              kind={applyMessage.includes('Failed') || applyMessage.includes('error') ? 'danger' : 'success'}
+              title={applyMessage.includes('Failed') ? 'Application error' : 'Status'}
+            >
+              {applyMessage}
+            </Alert>
+          )}
           <form className="form" onSubmit={(e) => void applyShop(e)}>
             <div className="field">
-              <label htmlFor="shopName">Shop name</label>
+              <label htmlFor="shopName">
+                Shop name <span className="req">*</span>
+              </label>
               <input
                 id="shopName"
                 required
                 value={shopForm.shopName}
-                onChange={(e) =>
-                  setShopForm({ ...shopForm, shopName: e.target.value })
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="businessType">Business type</label>
-              <input
-                id="businessType"
-                required
-                value={shopForm.businessType}
-                onChange={(e) =>
-                  setShopForm({ ...shopForm, businessType: e.target.value })
-                }
+                onChange={(e) => setShopForm({ ...shopForm, shopName: e.target.value })}
+                placeholder="e.g. Ceylon Express"
               />
             </div>
             <div className="row">
               <div className="field">
-                <label htmlFor="countryIso">Country (ISO-2)</label>
+                <label htmlFor="businessType">Business type</label>
+                <select
+                  id="businessType"
+                  value={shopForm.businessType}
+                  onChange={(e) => setShopForm({ ...shopForm, businessType: e.target.value })}
+                >
+                  {BUSINESS_TYPES.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="countryIso">
+                  Country (ISO-2) <span className="req">*</span>
+                </label>
                 <input
                   id="countryIso"
                   required
                   maxLength={2}
                   value={shopForm.countryIso}
                   onChange={(e) =>
-                    setShopForm({ ...shopForm, countryIso: e.target.value })
+                    setShopForm({ ...shopForm, countryIso: e.target.value.toUpperCase() })
                   }
+                  placeholder={LOCALE_DEFAULTS.countryIso || 'XX'}
                 />
               </div>
               <div className="field">
-                <label htmlFor="currencyIso">Currency (ISO-3)</label>
+                <label htmlFor="currencyIso">
+                  Currency (ISO-3) <span className="req">*</span>
+                </label>
                 <input
                   id="currencyIso"
                   required
                   maxLength={3}
                   value={shopForm.currencyIso}
                   onChange={(e) =>
-                    setShopForm({ ...shopForm, currencyIso: e.target.value })
+                    setShopForm({ ...shopForm, currencyIso: e.target.value.toUpperCase() })
                   }
+                  placeholder={LOCALE_DEFAULTS.currencyIso}
+                />
+              </div>
+            </div>
+            <div className="row">
+              <div className="field">
+                <label htmlFor="contactEmail">Contact email</label>
+                <input
+                  id="contactEmail"
+                  type="email"
+                  value={shopForm.contactEmail}
+                  onChange={(e) => setShopForm({ ...shopForm, contactEmail: e.target.value })}
+                  placeholder="hello@shop.com"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="contactPhone">Contact phone</label>
+                <input
+                  id="contactPhone"
+                  value={shopForm.contactPhone}
+                  onChange={(e) => setShopForm({ ...shopForm, contactPhone: e.target.value })}
+                  placeholder="+94 11 234 5678"
                 />
               </div>
             </div>
             <div className="field">
-              <label htmlFor="contactEmail">Contact email</label>
-              <input
-                id="contactEmail"
-                type="email"
-                value={shopForm.contactEmail}
-                onChange={(e) =>
-                  setShopForm({ ...shopForm, contactEmail: e.target.value })
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="contactPhone">Contact phone</label>
-              <input
-                id="contactPhone"
-                value={shopForm.contactPhone}
-                onChange={(e) =>
-                  setShopForm({ ...shopForm, contactPhone: e.target.value })
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="about">About</label>
+              <label htmlFor="about">About your business</label>
               <textarea
                 id="about"
                 rows={3}
                 value={shopForm.about}
-                onChange={(e) =>
-                  setShopForm({ ...shopForm, about: e.target.value })
-                }
+                onChange={(e) => setShopForm({ ...shopForm, about: e.target.value })}
+                placeholder="What do you sell? Where do you operate? Any special partnerships?"
               />
             </div>
-            <button className="btn primary" type="submit" disabled={applying}>
-              {applying ? 'Submitting…' : 'Apply to open shop'}
+            <button className="btn primary block lg" type="submit" disabled={applying}>
+              {applying ? (
+                <>
+                  <span className="spinner" />
+                  Submitting application…
+                </>
+              ) : (
+                '📨 Submit shop application'
+              )}
             </button>
           </form>
-          {applyMessage && <p className="muted">{applyMessage}</p>}
-        </>
+        </div>
       )}
 
       {shop && (
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h2>{shop.shopName}</h2>
-          <p className="muted">
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <div className="row between center" style={{ marginBottom: 'var(--space-3)' }}>
+            <div>
+              <span className="eyebrow">My shop</span>
+              <h2 style={{ margin: '0.25rem 0 0' }}>{shop.shopName}</h2>
+            </div>
+            <span className={`badge ${statusVariant(shop.status)}`}>{shop.status}</span>
+          </div>
+          <p className="muted fs-sm" style={{ marginTop: 0 }}>
             {shop.businessType} · {shop.countryIso} · {shop.currencyIso}
+            {shop.contactEmail && ` · ${shop.contactEmail}`}
+            {shop.contactPhone && ` · ${shop.contactPhone}`}
           </p>
-          {shop.about && <p>{shop.about}</p>}
-          <p>
-            Status: <span className={`badge ${shop.status.toLowerCase()}`}>{shop.status}</span>
-            {shop.contactEmail && <span> · {shop.contactEmail}</span>}
-            {shop.contactPhone && <span> · {shop.contactPhone}</span>}
+          {shop.about && <p style={{ margin: 'var(--space-2) 0 0' }}>{shop.about}</p>}
+          <p className="muted fs-xs" style={{ marginTop: 'var(--space-3)' }}>
+            Applied {new Date(shop.appliedAt).toLocaleString()}
+            {shop.reviewedAt && ` · Reviewed ${new Date(shop.reviewedAt).toLocaleString()}`}
           </p>
         </div>
       )}
 
-      <h2 style={{ marginTop: '2rem' }}>Providers</h2>
-      {providersLoading && <p className="muted">Loading providers…</p>}
-      {!providersLoading && providersError && <p className="error">{providersError}</p>}
+      {providersError && <Alert kind="danger">{providersError}</Alert>}
 
-      {!providersLoading && providers.length === 0 && (
+      {providersLoading && !providers.length ? (
         <div className="card">
-          <h3>Connect your first provider</h3>
-          <p className="muted">
-            A provider (e.g. a railway, bus or movie operator) must be connected
-            before you can publish products. Pick a concrete vertical — there is
-            no mixed type.
-          </p>
-          {providerMessage && <p className="error">{providerMessage}</p>}
+          <Skeleton lines={4} />
+        </div>
+      ) : !providersLoading && providers.length === 0 ? (
+        <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <SectionTitle
+            title="🔌 Connect your first provider"
+            subtitle="A provider (e.g. a railway, bus or movie operator) must be connected before you can publish products."
+          />
+          {providerMessage && (
+            <Alert
+              kind={providerMessage.includes('Failed') ? 'danger' : 'info'}
+              title="Status"
+            >
+              {providerMessage}
+            </Alert>
+          )}
           <form className="form" onSubmit={(e) => void connectProvider(e)}>
             <div className="row">
               <div className="field">
-                <label htmlFor="newProviderCode">Provider code</label>
+                <label htmlFor="newProviderCode">
+                  Provider code <span className="req">*</span>
+                </label>
                 <input
                   id="newProviderCode"
                   required
                   value={providerForm.code}
-                  onChange={(e) =>
-                    setProviderForm({ ...providerForm, code: e.target.value })
-                  }
+                  onChange={(e) => setProviderForm({ ...providerForm, code: e.target.value })}
+                  placeholder="SL-RAIL"
                 />
               </div>
               <div className="field" style={{ flex: 2 }}>
-                <label htmlFor="providerName">Provider name</label>
+                <label htmlFor="providerName">
+                  Provider name <span className="req">*</span>
+                </label>
                 <input
                   id="providerName"
                   required
                   value={providerForm.name}
-                  onChange={(e) =>
-                    setProviderForm({ ...providerForm, name: e.target.value })
-                  }
+                  onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
+                  placeholder="Sri Lanka Railways"
                 />
               </div>
             </div>
@@ -544,12 +723,8 @@ export default function AgentPortalPage() {
               <input
                 id="apiEndpoint"
                 value={providerForm.apiEndpoint}
-                onChange={(e) =>
-                  setProviderForm({
-                    ...providerForm,
-                    apiEndpoint: e.target.value,
-                  })
-                }
+                onChange={(e) => setProviderForm({ ...providerForm, apiEndpoint: e.target.value })}
+                placeholder="https://api.railway.lk/v1"
               />
             </div>
             <div className="row">
@@ -558,9 +733,7 @@ export default function AgentPortalPage() {
                 <select
                   id="authMode"
                   value={providerForm.authMode}
-                  onChange={(e) =>
-                    setProviderForm({ ...providerForm, authMode: e.target.value })
-                  }
+                  onChange={(e) => setProviderForm({ ...providerForm, authMode: e.target.value })}
                 >
                   {AUTH_MODES.map((m) => (
                     <option key={m} value={m}>
@@ -574,13 +747,11 @@ export default function AgentPortalPage() {
                 <select
                   id="vertical"
                   value={providerForm.vertical}
-                  onChange={(e) =>
-                    setProviderForm({ ...providerForm, vertical: e.target.value })
-                  }
+                  onChange={(e) => setProviderForm({ ...providerForm, vertical: e.target.value })}
                 >
                   {VERTICALS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
+                    <option key={v.key} value={v.key}>
+                      {v.icon} {v.key}
                     </option>
                   ))}
                 </select>
@@ -591,362 +762,523 @@ export default function AgentPortalPage() {
               <input
                 id="capabilities"
                 value={providerForm.capabilities}
-                onChange={(e) =>
-                  setProviderForm({
-                    ...providerForm,
-                    capabilities: e.target.value,
-                  })
-                }
+                onChange={(e) => setProviderForm({ ...providerForm, capabilities: e.target.value })}
+                placeholder="search,book,cancel"
               />
             </div>
-            <button
-              className="btn primary"
-              type="submit"
-              disabled={connecting}
-            >
-              {connecting ? 'Connecting…' : 'Connect provider'}
+            <button className="btn primary" type="submit" disabled={connecting}>
+              {connecting ? (
+                <>
+                  <span className="spinner" />
+                  Connecting…
+                </>
+              ) : (
+                '🔌 Connect provider'
+              )}
             </button>
           </form>
         </div>
-      )}
-
-      {!providersLoading && providers.length > 0 && (
-        <>
-          {providerMessage && <p className="success">{providerMessage}</p>}
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Vertical</th>
-                <th>Branding</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
+      ) : (
+        providers.length > 0 && (
+          <>
+            {providerMessage && (
+              <Alert
+                kind={providerMessage.includes('Failed') ? 'danger' : 'success'}
+                title="Provider status"
+              >
+                {providerMessage}
+              </Alert>
+            )}
+            <SectionTitle
+              title="🔌 Providers"
+              subtitle="Connected transport operators and inventory sources. Customize each provider's branding below."
+            />
+            <div className="grid" style={{ marginBottom: 'var(--space-4)' }}>
               {providers.map((p) => (
-                <tr key={p.id}>
-                  <td><span className="tag">{p.code}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" />}
+                <article className="card" key={p.id}>
+                  <div className="row between center" style={{ marginBottom: 'var(--space-2)' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                      }}
+                    >
+                      {p.logoUrl ? (
+                        <img
+                          src={p.logoUrl}
+                          alt=""
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: 'var(--surface-2)',
+                            padding: 4,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: 'var(--gradient-soft)',
+                            color: p.themeColor ?? 'var(--primary-700)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.2rem',
+                          }}
+                        >
+                          {VERTICALS.find((v) => v.key === p.vertical)?.icon ?? '🔌'}
+                        </div>
+                      )}
                       <div>
                         <strong>{p.name}</strong>
-                        {p.tagline && <div className="muted" style={{ fontSize: '0.8rem' }}>{p.tagline}</div>}
+                        <div className="muted fs-xs">
+                          {VERTICALS.find((v) => v.key === p.vertical)?.icon} {p.vertical}
+                        </div>
                       </div>
                     </div>
-                  </td>
-                  <td>{p.vertical}</td>
-                  <td>
+                    <span className={`badge ${statusVariant(p.status)}`}>{p.status}</span>
+                  </div>
+                  <p className="muted fs-sm" style={{ margin: 0 }}>
+                    <code className="tag">{p.code}</code>
                     {p.themeColor && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <span style={{ display: 'inline-block', width: 16, height: 16, borderRadius: 4, background: p.themeColor }} />
-                        <span className="muted" style={{ fontSize: '0.8rem' }}>{p.themeColor}</span>
-                      </span>
+                      <>
+                        {' · '}
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: 12,
+                            height: 12,
+                            borderRadius: 3,
+                            background: p.themeColor,
+                            verticalAlign: 'middle',
+                            marginRight: 4,
+                          }}
+                        />
+                        {p.themeColor}
+                      </>
                     )}
-                    {!p.themeColor && <span className="muted">Not set</span>}
-                  </td>
-                  <td>
-                    <span className={`badge ${p.status === 'ACTIVE' ? 'confirmed' : 'pending'}`}>{p.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {brandingMsg && <p className={brandingMsg.includes('saved') ? 'success' : 'error'}>{brandingMsg}</p>}
-
-          <h3 style={{ marginTop: '1.5rem' }}>Customize provider branding</h3>
-          <p className="muted">Set logo, theme color and tagline for each of your providers. This is how customers see you in the marketplace.</p>
-          <div className="row" style={{ flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-            {providers.map((p) => (
-              <button key={p.code} className={`btn ${brandingTarget === p.code ? 'primary' : ''}`}
-                onClick={() => openBrandingEditor(p)}>
-                {p.logoUrl && <img src={p.logoUrl} alt="" className="logo" style={{ marginRight: 4 }} />}
-                {p.name}
-              </button>
-            ))}
-          </div>
-
-          {brandingTarget && (
-            <div className="card">
-              <h3>Edit branding: {brandingTarget}</h3>
-              <form className="form" onSubmit={(e) => void saveBranding(e)}>
-                <div className="row">
-                  <div className="field">
-                    <label htmlFor="agLogo">Logo URL</label>
-                    <input id="agLogo" value={brandingForm.logoUrl} placeholder="https://example.com/logo.png"
-                      onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="agBanner">Banner URL</label>
-                    <input id="agBanner" value={brandingForm.bannerUrl} placeholder="https://example.com/banner.jpg"
-                      onChange={(e) => setBrandingForm({ ...brandingForm, bannerUrl: e.target.value })} />
-                  </div>
-                </div>
-                <div className="row">
-                  <div className="field">
-                    <label htmlFor="agTheme">Theme color</label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input id="agTheme" type="color" value={brandingForm.themeColor}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, themeColor: e.target.value })}
-                        style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }} />
-                      <input value={brandingForm.themeColor} style={{ flex: 1 }}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, themeColor: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="agSecondary">Secondary color</label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input id="agSecondary" type="color" value={brandingForm.secondaryColor || '#2e86de'}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })}
-                        style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }} />
-                      <input value={brandingForm.secondaryColor} style={{ flex: 1 }}
-                        onChange={(e) => setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })} />
-                    </div>
-                  </div>
-                </div>
-                <div className="field">
-                  <label htmlFor="agTagline">Tagline</label>
-                  <input id="agTagline" value={brandingForm.tagline} placeholder="Your journey starts here"
-                    onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })} />
-                </div>
-                <div className="row">
-                  <button className="btn primary" type="submit" disabled={savingBranding}>
-                    {savingBranding ? 'Saving...' : 'Save branding'}
-                  </button>
-                  <button className="btn" type="button" onClick={() => setBrandingTarget(null)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          )}
-        </>
-      )}
-
-      <h2 style={{ marginTop: '2rem' }}>
-        {editingId ? `Edit product #${editingId}` : 'Publish a product'}
-      </h2>
-      {!providersLoading && providers.length === 0 && (
-        <p className="muted">
-          Connect a provider first to enable product publishing.
-        </p>
-      )}
-      <form className="form" onSubmit={(e) => void saveProduct(e)}>
-        <div className="row">
-          <div className="field" style={{ flex: 0.6 }}>
-            <label htmlFor="productType">Product type</label>
-            <select
-              id="productType"
-              value={productForm.productType}
-              onChange={(e) =>
-                setProductForm({ ...productForm, productType: e.target.value })
-              }
-            >
-              {PRODUCT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field" style={{ flex: 1.4 }}>
-            <label htmlFor="title">Title</label>
-            <input
-              id="title"
-              required
-              value={productForm.title}
-              onChange={(e) =>
-                setProductForm({ ...productForm, title: e.target.value })
-              }
-            />
-          </div>
-        </div>
-        <div className="row">
-          <div className="field">
-            <label htmlFor="origin">Origin</label>
-            <input
-              id="origin"
-              value={productForm.origin}
-              onChange={(e) =>
-                setProductForm({ ...productForm, origin: e.target.value })
-              }
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="destination">Destination</label>
-            <input
-              id="destination"
-              value={productForm.destination}
-              onChange={(e) =>
-                setProductForm({ ...productForm, destination: e.target.value })
-              }
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="eventDate">Event date / time</label>
-          <input
-            id="eventDate"
-            type="datetime-local"
-            value={productForm.eventDate}
-            onChange={(e) =>
-              setProductForm({ ...productForm, eventDate: e.target.value })
-            }
-          />
-        </div>
-        <div className="row">
-          <div className="field">
-            <label htmlFor="price">Price</label>
-            <input
-              id="price"
-              type="number"
-              min={0}
-              step="0.01"
-              required
-              value={productForm.price}
-              onChange={(e) =>
-                setProductForm({ ...productForm, price: e.target.value })
-              }
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="prodCurrencyIso">Currency (ISO-3)</label>
-            <input
-              id="prodCurrencyIso"
-              maxLength={3}
-              required
-              value={productForm.currencyIso}
-              onChange={(e) =>
-                setProductForm({ ...productForm, currencyIso: e.target.value })
-              }
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="availableQuantity">Available quantity</label>
-            <input
-              id="availableQuantity"
-              type="number"
-              min={0}
-              required
-              value={productForm.availableQuantity}
-              onChange={(e) =>
-                setProductForm({
-                  ...productForm,
-                  availableQuantity: e.target.value,
-                })
-              }
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="description">Description</label>
-          <textarea
-            id="description"
-            rows={2}
-            value={productForm.description}
-            onChange={(e) =>
-              setProductForm({ ...productForm, description: e.target.value })
-            }
-          />
-        </div>
-        {!editingId && (
-          <div className="field">
-            <label htmlFor="providerCode">Provider code</label>
-            <input
-              id="providerCode"
-              required
-              value={productForm.providerCode}
-              onChange={(e) =>
-                setProductForm({ ...productForm, providerCode: e.target.value })
-              }
-            />
-          </div>
-        )}
-        <div className="row">
-          <button
-            className="btn primary"
-            type="submit"
-            disabled={saving || (!editingId && providers.length === 0)}
-            title={
-              !editingId && providers.length === 0
-                ? 'Connect a provider first'
-                : undefined
-            }
-          >
-            {saving
-              ? 'Saving…'
-              : editingId
-                ? 'Update product'
-                : 'Publish product'}
-          </button>
-          {editingId && (
-            <button className="btn" type="button" onClick={resetProductForm}>
-              Cancel edit
-            </button>
-          )}
-        </div>
-      </form>
-      {productMessage && <p className="success">{productMessage}</p>}
-      {productError && <p className="error">{productError}</p>}
-
-      <h2 style={{ marginTop: '2rem' }}>My products</h2>
-      {productsError && <p className="error">{productsError}</p>}
-      {products.length === 0 ? (
-        <p className="muted">No products published yet.</p>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Type</th>
-              <th>Price</th>
-              <th>Qty</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td>{p.title}</td>
-                <td>
-                  <span className="tag">{p.productType}</span>
-                </td>
-                <td className="currency">
-                  {p.currencyIso} {fmt(p.price)}
-                </td>
-                <td>{p.availableQuantity}</td>
-                <td>
-                  <span className={`badge ${p.enabled ? 'confirmed' : 'cancelled'}`}>
-                    {p.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </td>
-                <td>
-                  <div className="row" style={{ gap: '0.5rem' }}>
+                    {p.tagline && ` · "${p.tagline}"`}
+                  </p>
+                  <div className="row tight" style={{ marginTop: 'var(--space-3)' }}>
                     <button
                       className="btn"
-                      onClick={() => void toggleProduct(p.id, !p.enabled)}
+                      onClick={() => openBrandingEditor(p)}
+                      style={{ flex: 1 }}
                     >
-                      {p.enabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <button className="btn" onClick={() => startEdit(p)}>
-                      Edit
+                      🎨 Branding
                     </button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </article>
+              ))}
+            </div>
+          </>
+        )
       )}
+
+      <SectionTitle
+        title={editingId ? `✏️ Edit product #${editingId}` : '📦 Publish a product'}
+        subtitle={
+          providers.length === 0
+            ? 'Connect a provider first to enable product publishing.'
+            : 'Add an inventory item to your catalog. Customers can purchase it through the marketplace.'
+        }
+      />
+
+      {productMessage && <Alert kind="success">{productMessage}</Alert>}
+      {productError && <Alert kind="danger">{productError}</Alert>}
+
+      <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+        <form className="form" onSubmit={(e) => void saveProduct(e)}>
+          <div className="row">
+            <div className="field" style={{ flex: '0 0 200px' }}>
+              <label htmlFor="productType">Product type</label>
+              <select
+                id="productType"
+                value={productForm.productType}
+                onChange={(e) => setProductForm({ ...productForm, productType: e.target.value })}
+              >
+                {PRODUCT_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.icon} {t.key}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label htmlFor="title">
+                Title <span className="req">*</span>
+              </label>
+              <input
+                id="title"
+                required
+                value={productForm.title}
+                onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
+                placeholder="Colombo → Kandy Express"
+              />
+            </div>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="origin">Origin</label>
+              <input
+                id="origin"
+                value={productForm.origin}
+                onChange={(e) => setProductForm({ ...productForm, origin: e.target.value })}
+                placeholder="Colombo Fort"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="destination">Destination</label>
+              <input
+                id="destination"
+                value={productForm.destination}
+                onChange={(e) => setProductForm({ ...productForm, destination: e.target.value })}
+                placeholder="Kandy"
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="eventDate">Event date / time</label>
+            <input
+              id="eventDate"
+              type="datetime-local"
+              value={productForm.eventDate}
+              onChange={(e) => setProductForm({ ...productForm, eventDate: e.target.value })}
+            />
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="price">
+                Price <span className="req">*</span>
+              </label>
+              <input
+                id="price"
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                value={productForm.price}
+                onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="prodCurrencyIso">Currency</label>
+              <input
+                id="prodCurrencyIso"
+                maxLength={3}
+                required
+                value={productForm.currencyIso}
+                onChange={(e) =>
+                  setProductForm({
+                    ...productForm,
+                    currencyIso: e.target.value.toUpperCase(),
+                  })
+                }
+                placeholder={LOCALE_DEFAULTS.currencyIso}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="availableQuantity">Quantity</label>
+              <input
+                id="availableQuantity"
+                type="number"
+                min={0}
+                required
+                value={productForm.availableQuantity}
+                onChange={(e) =>
+                  setProductForm({ ...productForm, availableQuantity: e.target.value })
+                }
+                placeholder="50"
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              rows={2}
+              value={productForm.description}
+              onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+              placeholder="What's included? Any highlights? Duration, class, amenities…"
+            />
+          </div>
+          {!editingId && (
+            <div className="field">
+              <label htmlFor="providerCode">
+                Provider code <span className="req">*</span>
+              </label>
+              <select
+                id="providerCode"
+                required
+                value={productForm.providerCode}
+                onChange={(e) => setProductForm({ ...productForm, providerCode: e.target.value })}
+              >
+                {providers.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.code} — {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="row">
+            <button
+              className="btn primary"
+              type="submit"
+              disabled={saving || (!editingId && providers.length === 0)}
+              title={
+                !editingId && providers.length === 0
+                  ? 'Connect a provider first'
+                  : undefined
+              }
+            >
+              {saving ? (
+                <>
+                  <span className="spinner" />
+                  Saving…
+                </>
+              ) : editingId ? (
+                '💾 Update product'
+              ) : (
+                '🚀 Publish product'
+              )}
+            </button>
+            {editingId && (
+              <button className="btn" type="button" onClick={resetProductForm}>
+                Cancel edit
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      <SectionTitle
+        title="📋 My products"
+        subtitle="Toggle availability to control which products appear in the marketplace."
+      />
+
+      {productsError && <Alert kind="danger">{productsError}</Alert>}
+
+      {products.length === 0 ? (
+        <EmptyState
+          icon="📦"
+          title="No products yet"
+          description="Publish your first product above to start selling on the marketplace."
+        />
+      ) : (
+        <div className="grid">
+          {products.map((p) => {
+            const typeIcon = PRODUCT_TYPES.find((t) => t.key === p.productType)?.icon ?? '📦';
+            return (
+              <article className="card" key={p.id}>
+                <div className="row between center" style={{ marginBottom: 'var(--space-2)' }}>
+                  <strong>
+                    {typeIcon} {p.title}
+                  </strong>
+                  <span className={`badge ${p.enabled ? 'success' : 'default'}`}>
+                    {p.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <p className="muted fs-sm" style={{ margin: '0 0 var(--space-3)' }}>
+                  {p.origin && p.destination ? `${p.origin} → ${p.destination}` : '—'}
+                </p>
+                <div className="row tight" style={{ marginBottom: 'var(--space-3)' }}>
+                  <span className="tag outline">
+                    {p.currencyIso} {Number(p.price).toFixed(2)}
+                  </span>
+                  <span className="tag outline">📦 {p.availableQuantity} left</span>
+                </div>
+                <div className="row tight">
+                  <button
+                    className="btn"
+                    onClick={() => void toggleProduct(p.id, !p.enabled)}
+                    style={{ flex: 1 }}
+                  >
+                    {p.enabled ? '⏸ Disable' : '▶ Enable'}
+                  </button>
+                  <button className="btn" onClick={() => startEdit(p)}>
+                    ✏️ Edit
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <Modal
+        open={brandingTarget !== null}
+        onClose={() => setBrandingTarget(null)}
+        title={
+          brandingTarget
+            ? `🎨 Customize branding — ${brandingTarget.name}`
+            : 'Customize branding'
+        }
+        subtitle="This is how customers see you in the marketplace and shop page."
+      >
+        {brandingMsg && (
+          <Alert
+            kind={brandingMsg.includes('Failed') || brandingMsg.includes('Could not') ? 'danger' : 'success'}
+          >
+            {brandingMsg}
+          </Alert>
+        )}
+        <form className="form" onSubmit={(e) => void saveBranding(e)}>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="agLogo">Logo URL</label>
+              <input
+                id="agLogo"
+                value={brandingForm.logoUrl}
+                placeholder="https://example.com/logo.png"
+                onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="agBanner">Banner URL</label>
+              <input
+                id="agBanner"
+                value={brandingForm.bannerUrl}
+                placeholder="https://example.com/banner.jpg"
+                onChange={(e) => setBrandingForm({ ...brandingForm, bannerUrl: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="agTheme">Theme color</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  id="agTheme"
+                  type="color"
+                  value={brandingForm.themeColor}
+                  onChange={(e) =>
+                    setBrandingForm({ ...brandingForm, themeColor: e.target.value })
+                  }
+                  style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }}
+                />
+                <input
+                  value={brandingForm.themeColor}
+                  style={{ flex: 1, fontFamily: 'monospace' }}
+                  onChange={(e) =>
+                    setBrandingForm({ ...brandingForm, themeColor: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="agSecondary">Secondary color</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  id="agSecondary"
+                  type="color"
+                  value={brandingForm.secondaryColor || '#2e86de'}
+                  onChange={(e) =>
+                    setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })
+                  }
+                  style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }}
+                />
+                <input
+                  value={brandingForm.secondaryColor}
+                  placeholder="#2e86de"
+                  style={{ flex: 1, fontFamily: 'monospace' }}
+                  onChange={(e) =>
+                    setBrandingForm({ ...brandingForm, secondaryColor: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="agTagline">Tagline</label>
+            <input
+              id="agTagline"
+              value={brandingForm.tagline}
+              placeholder="Your journey starts here"
+              onChange={(e) => setBrandingForm({ ...brandingForm, tagline: e.target.value })}
+            />
+          </div>
+
+          <div
+            style={{
+              padding: 'var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              background: `linear-gradient(135deg, ${brandingForm.themeColor} 0%, ${
+                brandingForm.secondaryColor || '#7c3aed'
+              } 100%)`,
+              color: '#fff',
+              minHeight: 96,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+            }}
+          >
+            {brandingForm.logoUrl ? (
+              <img
+                src={brandingForm.logoUrl}
+                alt=""
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.95)',
+                  padding: 4,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.18)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                }}
+              >
+                🏪
+              </div>
+            )}
+            <div>
+              <span style={{ opacity: 0.85, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Live preview
+              </span>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, marginTop: 2 }}>
+                {brandingTarget?.name ?? 'Provider'}
+              </div>
+              {brandingForm.tagline && (
+                <div style={{ fontSize: '0.85rem', opacity: 0.9, marginTop: 2 }}>
+                  "{brandingForm.tagline}"
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={savingBranding}>
+              {savingBranding ? (
+                <>
+                  <span className="spinner" />
+                  Saving…
+                </>
+              ) : (
+                '💾 Save branding'
+              )}
+            </button>
+            <button className="btn" type="button" onClick={() => setBrandingTarget(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
     </section>
   );
-}
-
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
 }

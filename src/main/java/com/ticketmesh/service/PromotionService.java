@@ -51,6 +51,12 @@ public class PromotionService {
         return promotionRepository.findByTenantId(tenantId);
     }
 
+    /** Returns all currently-active discounts across all tenants (for the public home page). */
+    @Transactional(readOnly = true)
+    public List<Promotion> listPublicActive() {
+        return promotionRepository.findActivePromotions(Instant.now());
+    }
+
     @Transactional
     public Promotion setEnabled(Long promotionId, boolean enabled) {
         Promotion p = promotionRepository.findById(promotionId)

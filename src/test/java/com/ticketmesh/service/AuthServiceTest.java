@@ -57,12 +57,14 @@ class AuthServiceTest {
         when(userDetailsService.loadUserByUsername(anyString()))
                 .thenReturn(new org.springframework.security.core.userdetails.User(
                         "user", "pw", List.of()));
-        when(jwtService.generateToken(any(UserDetails.class))).thenReturn("jwt-token");
+        when(jwtService.generateAccessToken(any(UserDetails.class))).thenReturn("jwt-token");
+        when(jwtService.generateRefreshToken(any(UserDetails.class))).thenReturn("jwt-refresh");
+        when(jwtService.getAccessExpirationMillis()).thenReturn(86_400_000L);
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private User agentUser() {
-        return new User("agentShop", "encoded", "Agent Shop", "agent@shop.com",
+        return new User("agentshop", "encoded", "Agent Shop", "agent@shop.com",
                 User.Role.AGENT, 42L, "0771234567");
     }
 
@@ -79,7 +81,7 @@ class AuthServiceTest {
 
     @Test
     void register_agentWithoutTenantAutoProvisionsTenant() {
-        when(userRepository.findByUsername("agentShop")).thenReturn(Optional.of(agentUser()));
+        when(userRepository.findByUsername("agentshop")).thenReturn(Optional.of(agentUser()));
 
         AuthResponse response = authService.register(agentRequestWithoutTenant());
 
@@ -98,17 +100,17 @@ class AuthServiceTest {
         verify(userRepository).save(userCaptor.capture());
         User saved = userCaptor.getValue();
         assertEquals(provisioned.getId(), saved.getTenantId());
-        assertEquals("0771234567", saved.getPhone());
+        assertEquals("+940771234567", saved.getPhone());
         assertEquals(User.Role.AGENT, saved.getRole());
 
-        assertEquals("jwt-token", response.token());
-        assertEquals("agentShop", response.username());
+        assertEquals("jwt-token", response.accessToken());
+        assertEquals("agentshop", response.username());
         assertEquals("AGENT", response.role());
     }
 
     @Test
     void register_agentWithCollidingSlugGetsUniqueSuffix() {
-        when(userRepository.findByUsername("agentShop")).thenReturn(Optional.of(agentUser()));
+        when(userRepository.findByUsername("agentshop")).thenReturn(Optional.of(agentUser()));
         when(tenantRepository.existsBySlug("agentshop-shop")).thenReturn(true);
         when(tenantRepository.existsBySlug("agentshop-shop-2")).thenReturn(false);
 
@@ -125,8 +127,8 @@ class AuthServiceTest {
                 "en", "Asia/Singapore", null);
         ReflectionTestUtils.setField(tenant, "id", 7L);
         when(tenantRepository.findBySlug("demo-sg")).thenReturn(Optional.of(tenant));
-        when(userRepository.findByUsername("shopOwner")).thenReturn(Optional.of(
-                new User("shopOwner", "encoded", "Shop Owner", "owner@example.com",
+        when(userRepository.findByUsername("shopowner")).thenReturn(Optional.of(
+                new User("shopowner", "encoded", "Shop Owner", "owner@example.com",
                         User.Role.AGENT, tenant.getId(), "0770000000")));
 
         RegisterRequest req = new RegisterRequest();

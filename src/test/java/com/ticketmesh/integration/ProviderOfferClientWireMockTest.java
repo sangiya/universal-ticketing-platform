@@ -3,6 +3,7 @@ package com.ticketmesh.integration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.ticketmesh.dto.UniversalOffer;
+import com.ticketmesh.repository.ProviderRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Verifies the outbound provider adapter against an external ticket API that is
@@ -31,7 +33,7 @@ class ProviderOfferClientWireMockTest {
     void setUp() {
         wireMock = new WireMockServer(options().dynamicPort());
         wireMock.start();
-        client = new ProviderOfferClient(new ObjectMapper(), 2000, 3000);
+        client = new ProviderOfferClient(new ObjectMapper(), mock(ProviderRepository.class), 2000, 3000);
     }
 
     @AfterEach

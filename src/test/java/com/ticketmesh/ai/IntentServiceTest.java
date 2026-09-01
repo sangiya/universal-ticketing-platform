@@ -7,8 +7,8 @@ import com.ticketmesh.model.Provider;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.Tenant;
 import com.ticketmesh.model.TrainRoute;
-import com.ticketmesh.repository.ProviderProductRepository;
 import com.ticketmesh.repository.TrainRouteRepository;
+import com.ticketmesh.service.UniversalSearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -24,15 +24,15 @@ import static org.mockito.Mockito.when;
 
 class IntentServiceTest {
 
-    private ProviderProductRepository productRepository;
     private TrainRouteRepository routeRepository;
+    private UniversalSearchService universalSearchService;
     private IntentService service;
 
     @BeforeEach
     void setUp() {
-        productRepository = mock(ProviderProductRepository.class);
         routeRepository = mock(TrainRouteRepository.class);
-        service = new IntentService(productRepository, routeRepository);
+        universalSearchService = mock(UniversalSearchService.class);
+        service = new IntentService(routeRepository, universalSearchService);
     }
 
     @Test
@@ -68,43 +68,31 @@ class IntentServiceTest {
     }
 
     @Test
-    void searchEntity_returnsRouteAndProductHintsForMentionedEntity() {
+    void searchEntity_matchesRouteNameOriginDestination() {
         TrainRoute kandyRoute = route(1L, "Colombo-Kandy", "Colombo", "Kandy");
-        TrainRoute galleRoute = route(2L, "Colombo-Galle", "Colombo", "Galle");
-        ProviderProduct kandyShow = product(1L, "Kandy Festival Show", "Kandy", "Kandy");
-        ProviderProduct beachTour = product(2L, "Beach Tour to Galle", "Colombo", "Galle");
-        when(routeRepository.findAll()).thenReturn(List.of(kandyRoute, galleRoute));
-        when(productRepository.findAll()).thenReturn(List.of(kandyShow, beachTour));
+        when(routeRepository.findAll()).thenReturn(List.of(kandyRoute));
 
-        List<SearchMatch> matches = service.searchEntity("trip to Kandy for the festival show");
+        List<SearchMatch> matches = service.searchEntity("trip to Kandy");
 
-        assertEquals(2, matches.size());
-        assertTrue(matches.stream().anyMatch(m -> "route".equals(m.type())
-                && "Colombo-Kandy".equals(m.title()) && m.id() == 1L));
-        assertTrue(matches.stream().anyMatch(m -> "product".equals(m.type())
-                && "Kandy Festival Show".equals(m.title()) && m.id() == 1L));
-        assertFalse(matches.stream().anyMatch(m -> m.title().contains("Beach Tour")));
+        assertEquals(1, matches.size());
+        assertEquals("route", matches.get(0).type());
+        assertEquals("Colombo-Kandy", matches.get(0).title());
+        assertEquals(1L, matches.get(0).id());
     }
 
     @Test
-    void searchEntity_ignoresDisabledProductsAndDeterministic() {
+    void searchEntity_noMatchWhenNoRouteMatches() {
         when(routeRepository.findAll()).thenReturn(List.of());
-        when(productRepository.findAll()).thenReturn(List.of(product(1L, "Kandy Festival Show",
-                "Kandy", "Kandy", false)));
 
-        List<SearchMatch> first = service.searchEntity("kandy festival");
-        List<SearchMatch> second = service.searchEntity("kandy festival");
+        List<SearchMatch> first = service.searchEntity("trip to Ella");
+        List<SearchMatch> second = service.searchEntity("trip to Ella");
 
         assertEquals(first, second);
         assertTrue(first.isEmpty());
     }
 
     @Test
-    void searchEntity_noEntityKeywordYieldsEmptyMatches() {
-        when(routeRepository.findAll()).thenReturn(List.of(route(1L, "Colombo-Kandy", "Colombo", "Kandy")));
-        when(productRepository.findAll()).thenReturn(List.of(product(1L, "Kandy Festival Show",
-                "Kandy", "Kandy")));
-
+    void searchEntity_blankOrNullYieldsEmpty() {
         assertEquals(List.of(), service.searchEntity("what is the refund policy?"));
         assertEquals(List.of(), service.searchEntity("  "));
         assertEquals(List.of(), service.searchEntity(null));

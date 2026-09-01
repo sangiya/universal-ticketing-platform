@@ -2,6 +2,7 @@ package com.ticketmesh.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record ProductResponse(
@@ -24,5 +25,18 @@ public record ProductResponse(
         String logoUrl,
         String themeColor,
         String tagline,
-        Instant createdAt) {
+        Instant createdAt,
+        // ── Movie / event metadata ──
+        String language,
+        String genre,
+        String format,
+        Integer durationMinutes,
+        BigDecimal ratingStars,
+        String castList,
+        String director,
+        LocalDate releaseDate,
+        String posterUrl,
+        String bannerUrl,
+        boolean isPremiere,
+        boolean isNowShowing) {
 }

@@ -30,17 +30,34 @@ import java.util.List;
 public class SupportController {
 
     private final SupportService supportService;
+    private final RequestContext requestContext;
+    private final com.ticketmesh.repository.TenantRepository tenantRepository;
 
-    public SupportController(SupportService supportService) {
+    public SupportController(SupportService supportService,
+                             RequestContext requestContext,
+                             com.ticketmesh.repository.TenantRepository tenantRepository) {
         this.supportService = supportService;
+        this.requestContext = requestContext;
+        this.tenantRepository = tenantRepository;
+    }
+
+    private String currentUserSlug() {
+        Long tenantId = requestContext.currentTenantId();
+        if (tenantId == null) return "global";
+        return tenantRepository.findById(tenantId)
+                .map(com.ticketmesh.model.Tenant::getSlug)
+                .orElse("global");
     }
 
     @PostMapping("/tickets")
     public ResponseEntity<SupportTicketResponse> open(
-            @RequestParam("tenant") String tenantSlug,
+            @RequestParam(value = "tenant", required = false) String tenantSlug,
             @Valid @RequestBody SupportTicketRequest request) {
+        String resolvedTenant = tenantSlug != null
+                ? tenantSlug
+                : currentUserSlug();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(supportService.open(tenantSlug, request));
+                .body(supportService.open(resolvedTenant, request));
     }
 
     @GetMapping("/tickets/me")

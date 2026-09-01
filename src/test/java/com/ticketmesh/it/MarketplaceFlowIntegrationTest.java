@@ -72,7 +72,7 @@ class MarketplaceFlowIntegrationTest {
         JsonNode resp = read(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(map("username", "admin", "password", "ChangeMe123!"))), 200);
-        adminToken = resp.get("token").asText();
+        adminToken = resp.get("accessToken").asText();
         assertTrue(adminToken.length() > 20);
 
         JsonNode tenant = read(post("/api/admin/tenants")
@@ -118,7 +118,7 @@ class MarketplaceFlowIntegrationTest {
                 .content(json(map("username", "shopOwner", "password", "strongpass123",
                         "fullName", "Shop Owner", "email", "owner@example.com",
                         "role", "AGENT", "tenantSlug", "demo-sg"))), 201);
-        agentToken = agentReg.get("token").asText();
+        agentToken = agentReg.get("accessToken").asText();
         assertEquals("AGENT", agentReg.get("role").asText());
 
         JsonNode shop = read(post("/api/agent/shops?tenant=demo-sg")

@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApi } from '../context/ApiContext';
 import { Link } from 'react-router-dom';
+import {
+  Alert,
+  Currency,
+  EmptyState,
+  PageHeader,
+  Skeleton,
+  StatCard,
+} from '../components/UI';
 
 interface ProductOrder {
   id: number;
   orderRef: string;
-  tenantId?: number;
-  providerName: string;
   productTitle: string;
   productType: string;
+  providerName: string;
   quantity: number;
   unitPrice: number;
   currencyIso: string;
@@ -23,17 +30,37 @@ interface ProductOrder {
   paidAt: string | null;
 }
 
+const STATUS_FILTERS = [
+  { key: '', label: 'All' },
+  { key: 'PENDING', label: 'Pending' },
+  { key: 'PAID', label: 'Paid' },
+  { key: 'ISSUED', label: 'Issued' },
+  { key: 'CANCELLED', label: 'Cancelled' },
+  { key: 'REFUNDED', label: 'Refunded' },
+];
+
+function statusVariant(s: string): string {
+  const v = s.toLowerCase();
+  if (v === 'paid' || v === 'issued' || v === 'confirmed' || v === 'active') return 'success';
+  if (v === 'pending' || v === 'open' || v === 'reserved') return 'info';
+  if (v === 'cancelled' || v === 'expired' || v === 'refunded' || v === 'rejected') return 'danger';
+  if (v === 'escalated' || v === 'high' || v === 'medium') return 'warning';
+  return 'default';
+}
+
 export default function OrdersPage() {
-  const { api, authenticated } = useApi();
+  const { api } = useApi();
   const [orders, setOrders] = useState<ProductOrder[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<unknown[]>(`/orders/mine`);
+      const data = await api.get<unknown[]>('/orders/mine');
       setOrders((data as unknown as ProductOrder[]) ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load orders');
@@ -43,84 +70,182 @@ export default function OrdersPage() {
   }, [api]);
 
   useEffect(() => {
-    if (authenticated) void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated]);
+    void load();
+  }, [load]);
 
-  if (!authenticated) {
-    return (
-      <section className="page">
-        <h1>My Orders</h1>
-        <p className="muted">Sign in to view your marketplace orders.</p>
-        <Link className="btn primary" to="/login">
-          Sign in
-        </Link>
-      </section>
+  const filtered = orders
+    .filter((o) => !filter || o.status === filter)
+    .filter((o) =>
+      !search.trim()
+        ? true
+        : o.orderRef.toLowerCase().includes(search.toLowerCase()) ||
+          o.productTitle.toLowerCase().includes(search.toLowerCase()) ||
+          o.providerName.toLowerCase().includes(search.toLowerCase()),
     );
-  }
 
-  const fmt = (n: number | undefined | null) =>
-    n == null ? '—' : Number(n).toFixed(2);
+  const totalSpent = orders
+    .filter((o) => o.status === 'PAID' || o.status === 'ISSUED')
+    .reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+  const paidCount = orders.filter((o) => o.status === 'PAID' || o.status === 'ISSUED').length;
+  const pendingCount = orders.filter((o) => o.status === 'PENDING').length;
+  const lastOrder = orders[0];
 
   return (
     <section className="page">
-      <h1>My Orders</h1>
-      <p className="muted">Every marketplace purchase, itemised and tracked.</p>
-      {error && <p className="error">{error}</p>}
-      {loading && <p className="muted">Loading your orders…</p>}
+      <div className="breadcrumb">
+        <Link to="/dashboard">Dashboard</Link>
+        <span className="sep">›</span>
+        <span>My Orders</span>
+      </div>
 
-      {orders.length === 0 ? (
-        <p className="muted">
-          You have no orders yet.{' '}
-          <Link className="btn" to="/marketplace">
-            Browse the marketplace
-          </Link>
-        </p>
+      <PageHeader
+        title="My Orders"
+        subtitle="Track, pay, or download every ticket you've booked. Your history is permanent and exportable."
+      />
+
+      <div className="stats">
+        <StatCard
+          label="Total orders"
+          value={orders.length}
+          icon="🧾"
+        />
+        <StatCard
+          label="Paid"
+          value={paidCount}
+          icon="✓"
+          variant="success"
+        />
+        <StatCard
+          label="Pending"
+          value={pendingCount}
+          icon="⏳"
+          variant="warning"
+        />
+        <StatCard
+          label="Lifetime spend"
+          value={lastOrder ? `${lastOrder.currencyIso} ${totalSpent.toFixed(0)}` : '—'}
+          icon="💰"
+          variant="violet"
+        />
+      </div>
+
+      {error && <Alert kind="danger" title="Could not load orders">{error}</Alert>}
+
+      <div className="filters">
+        <div className="filter-group" style={{ flex: 1, minWidth: 220 }}>
+          <input
+            placeholder="🔍 Search by ref, product, or provider…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ flex: 1 }}
+          />
+        </div>
+        <div className="chip-row">
+          {STATUS_FILTERS.map((f) => {
+            const count = f.key ? orders.filter((o) => o.status === f.key).length : orders.length;
+            return (
+              <button
+                key={f.key}
+                className={`chip ${filter === f.key ? 'active' : ''}`}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+                <span className="count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card">
+          <Skeleton lines={6} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon="🧾"
+          title={orders.length === 0 ? 'You have no orders yet' : 'No orders match your filters'}
+          description={
+            orders.length === 0
+              ? 'Browse the marketplace to make your first booking.'
+              : 'Try a different status or clear the search.'
+          }
+          action={
+            orders.length === 0 ? (
+              <Link to="/marketplace" className="btn primary">
+                Browse marketplace
+              </Link>
+            ) : (
+              <button
+                className="btn"
+                onClick={() => {
+                  setFilter('');
+                  setSearch('');
+                }}
+              >
+                Clear filters
+              </button>
+            )
+          }
+        />
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Ref</th>
-              <th>Product</th>
-              <th>Type</th>
-              <th>Qty</th>
-              <th>Currency</th>
-              <th>Base</th>
-              <th>Tax</th>
-              <th>Fee</th>
-              <th>Discount</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td>{o.orderRef}</td>
-                <td>{o.productTitle}</td>
-                <td>
-                  <span className="tag">{o.productType}</span>
-                </td>
-                <td>{o.quantity}</td>
-                <td>{o.currencyIso}</td>
-                <td className="currency">{fmt(o.baseAmount)}</td>
-                <td className="currency">{fmt(o.taxAmount)}</td>
-                <td className="currency">{fmt(o.serviceFee)}</td>
-                <td className="currency">-{fmt(o.discountAmount)}</td>
-                <td className="currency">
-                  <strong>{fmt(o.totalAmount)}</strong>
-                </td>
-                <td>
-                  <span className={`badge ${o.status.toLowerCase()}`}>
-                    {o.status}
-                  </span>
-                </td>
-                <td>{new Date(o.createdAt).toLocaleString()}</td>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Product</th>
+                <th>Provider</th>
+                <th>Type</th>
+                <th className="right">Qty</th>
+                <th className="right">Total</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th className="right"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((o) => (
+                <tr key={o.id}>
+                  <td>
+                    <code className="tag">{o.orderRef}</code>
+                  </td>
+                  <td>
+                    <strong>{o.productTitle}</strong>
+                    {o.promoCode && (
+                      <div className="muted fs-xs">Promo: {o.promoCode}</div>
+                    )}
+                  </td>
+                  <td>{o.providerName}</td>
+                  <td>
+                    <span className="tag">{o.productType}</span>
+                  </td>
+                  <td className="right num">{o.quantity}</td>
+                  <td className="right">
+                    <Currency amount={o.totalAmount} currency={o.currencyIso} />
+                  </td>
+                  <td>
+                    <span className={`badge ${statusVariant(o.status)}`}>{o.status}</span>
+                  </td>
+                  <td className="muted fs-sm">
+                    {new Date(o.createdAt).toLocaleString()}
+                  </td>
+                  <td className="right">
+                    {o.status === 'PENDING' ? (
+                      <Link className="btn sm primary" to={`/checkout/${o.orderRef}`}>
+                        Pay
+                      </Link>
+                    ) : o.status === 'PAID' || o.status === 'ISSUED' ? (
+                      <Link className="btn sm" to={`/ticket/${o.orderRef}`}>
+                        View ticket
+                      </Link>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

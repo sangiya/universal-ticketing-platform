@@ -93,6 +93,18 @@ public class CatalogService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> searchCustomer(Long tenantId, String productType) {
+        // When tenantId is null, return all enabled products across tenants so
+        // the marketplace is browseable for unauthenticated visitors and for
+        // users without an associated tenant (e.g. cross-tenant customers).
+        if (tenantId == null) {
+            if (productType != null && !productType.isBlank()) {
+                ProductType type = parseType(productType);
+                return productRepository.findByProductTypeAndEnabledTrue(type)
+                        .stream().map(this::toResponse).toList();
+            }
+            return productRepository.findByEnabledTrue()
+                    .stream().map(this::toResponse).toList();
+        }
         if (productType != null && !productType.isBlank()) {
             ProductType type = parseType(productType);
             return productRepository.findByProductTypeAndTenant_IdAndEnabledTrue(type, tenantId)
@@ -107,6 +119,51 @@ public class CatalogService {
         return toResponse(productRepository.findById(productId)
                 .orElseThrow(() -> new NotFoundException(
                         "Product not found: " + productId)));
+    }
+
+    /**
+     * Lists movie / event admission products with optional filters.
+     * section:
+     *   - null/empty → all movies
+     *   - "now_showing" → only products flagged isNowShowing=true
+     *   - "coming_soon" → only products with future releaseDate
+     *   - "premieres" → only isPremiere=true products
+     */
+    @Transactional(readOnly = true)
+    public List<ProductResponse> listMovies(Long tenantId, String language,
+                                            String genre, String format, String section) {
+        List<ProviderProduct> all;
+        if (tenantId == null) {
+            all = productRepository.findByProductTypeAndEnabledTrue(ProductType.ADMISSION);
+        } else {
+            all = productRepository
+                    .findByProductTypeAndTenant_IdAndEnabledTrue(ProductType.ADMISSION, tenantId);
+        }
+        // Apply filters in memory — list sizes are small and this avoids N
+        // separate query methods per filter combination.
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return all.stream()
+                .filter(p -> language == null || language.isBlank()
+                        || (p.getLanguage() != null
+                                && p.getLanguage().equalsIgnoreCase(language)))
+                .filter(p -> genre == null || genre.isBlank()
+                        || (p.getGenre() != null
+                                && p.getGenre().toLowerCase().contains(genre.toLowerCase())))
+                .filter(p -> format == null || format.isBlank()
+                        || (p.getFormat() != null
+                                && p.getFormat().equalsIgnoreCase(format)))
+                .filter(p -> {
+                    if (section == null || section.isBlank()) return true;
+                    return switch (section.toLowerCase()) {
+                        case "now_showing", "nowshowing" -> p.isNowShowing();
+                        case "coming_soon", "comingsoon" ->
+                                p.getReleaseDate() != null && p.getReleaseDate().isAfter(today);
+                        case "premieres" -> p.isPremiere();
+                        default -> true;
+                    };
+                })
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -195,6 +252,10 @@ public class CatalogService {
                 p.getAttributes(), p.isEnabled(),
                 p.getProvider().getLogoUrl(), p.getProvider().getThemeColor(),
                 p.getProvider().getTagline(),
-                p.getCreatedAt());
+                p.getCreatedAt(),
+                p.getLanguage(), p.getGenre(), p.getFormat(),
+                p.getDurationMinutes(), p.getRatingStars(), p.getCastList(),
+                p.getDirector(), p.getReleaseDate(), p.getPosterUrl(),
+                p.getBannerUrl(), p.isPremiere(), p.isNowShowing());
     }
 }

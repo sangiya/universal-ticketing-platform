@@ -8,8 +8,10 @@ import com.ticketmesh.model.Provider;
 import com.ticketmesh.model.ProviderProduct;
 import com.ticketmesh.model.Tenant;
 import com.ticketmesh.model.User;
+import com.ticketmesh.repository.OrderAuditLogRepository;
 import com.ticketmesh.repository.ProductOrderRepository;
 import com.ticketmesh.repository.ProviderProductRepository;
+import com.ticketmesh.repository.SettlementRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +45,8 @@ class ProductOrderServiceTest {
     private LoyaltyService loyaltyService;
     private NotificationService notificationService;
     private EventService eventService;
+    private OrderAuditLogRepository auditRepository;
+    private SettlementRepository settlementRepository;
     private CurrentUser currentUser;
     private ProductOrderService orderService;
 
@@ -61,11 +65,14 @@ class ProductOrderServiceTest {
         loyaltyService = mock(LoyaltyService.class);
         notificationService = mock(NotificationService.class);
         eventService = mock(EventService.class);
+        auditRepository = mock(OrderAuditLogRepository.class);
+        settlementRepository = mock(SettlementRepository.class);
         currentUser = mock(CurrentUser.class);
 
         orderService = new ProductOrderService(
                 orderRepository, productRepository, userRepository, pricingService,
-                promotionService, loyaltyService, notificationService, eventService, currentUser);
+                promotionService, loyaltyService, notificationService, eventService,
+                auditRepository, settlementRepository, currentUser);
 
         tenant = mock(Tenant.class);
         when(tenant.getId()).thenReturn(1L);
@@ -92,10 +99,10 @@ class ProductOrderServiceTest {
                 new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("100.00"),
                 BigDecimal.ZERO, new BigDecimal("5600.00"), new BigDecimal("5600.00"),
                 "LKR", "LKR", null, new BigDecimal("5600.00"), null);
-        when(pricingService.breakdown(eq(product), isNull(String.class), eq("LKR"), anyLong()))
+        when(pricingService.breakdown(eq(product), isNull(), eq("LKR"), anyLong(), eq(99L)))
                 .thenReturn(breakdown);
-        when(pricingService.redeemAndDiscount(anyLong(), isNull(String.class),
-                any(BigDecimal.class))).thenReturn(BigDecimal.ZERO);
+        when(pricingService.redeemAndDiscount(anyLong(), isNull(),
+                any(BigDecimal.class), any())).thenReturn(BigDecimal.ZERO);
 
         ProductOrder order = orderService.create(1L, 1L, 2, null);
 
@@ -104,15 +111,14 @@ class ProductOrderServiceTest {
         assertEquals("Test Provider", order.getProviderName());
         assertEquals(2, order.getQuantity());
         assertEquals(0, new BigDecimal("5600.00").compareTo(order.getTotalAmount()));
-        assertEquals(ProductOrder.Status.CONFIRMED, order.getStatus());
+        assertEquals(ProductOrder.Status.PAID, order.getStatus());
         verify(orderRepository).save(any(ProductOrder.class));
         verify(productRepository).save(product);
         assertEquals(8, product.getAvailableQuantity());
-        verify(notificationService).notify(anyLong(), anyLong(), eq(Notification.Channel.IN_APP),
-                eq("Order confirmed"), any(String.class));
         verify(eventService).emit(eq("PRODUCT_ORDER"), any(String.class),
                 eq("ORDER_CREATED"), any(String.class));
-        verify(loyaltyService).earn(anyLong(), anyLong(), anyLong());
+        verify(loyaltyService).earnWithRef(anyLong(), anyLong(), anyLong(), any(String.class),
+                any(com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.class), any(String.class));
     }
 
     @Test
@@ -121,10 +127,10 @@ class ProductOrderServiceTest {
                 new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("100.00"),
                 BigDecimal.ZERO, new BigDecimal("5600.00"), new BigDecimal("5600.00"),
                 "LKR", "LKR", "WELCOME10", new BigDecimal("5600.00"), "Welcome 10%");
-        when(pricingService.breakdown(eq(product), eq("WELCOME10"), eq("LKR"), anyLong()))
+        when(pricingService.breakdown(eq(product), eq("WELCOME10"), eq("LKR"), anyLong(), eq(99L)))
                 .thenReturn(breakdown);
         when(pricingService.redeemAndDiscount(anyLong(), eq("WELCOME10"),
-                any(BigDecimal.class))).thenReturn(new BigDecimal("560.00"));
+                any(BigDecimal.class), any())).thenReturn(new BigDecimal("560.00"));
 
         ProductOrder order = orderService.create(1L, 1L, 1, "WELCOME10");
 
