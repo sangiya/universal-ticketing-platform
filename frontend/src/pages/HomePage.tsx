@@ -162,12 +162,8 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redirect authenticated users to their personalized dashboard
-  useEffect(() => {
-    if (authenticated) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [authenticated, navigate]);
+  // If authenticated, show a banner linking to their personal dashboard
+  // without redirecting — keep the full marketplace/search experience visible
 
   // Auto-suggest with 3-letter debounce
   useEffect(() => {

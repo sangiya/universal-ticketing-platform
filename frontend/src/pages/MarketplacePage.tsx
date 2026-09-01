@@ -209,6 +209,15 @@ export default function MarketplacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, products, authenticated, searchParams]);
 
+  // Apply deep-link filters (from dashboard search, vertical click, etc)
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q) setSearch(q);
+    const t = searchParams.get('type');
+    if (t) setTypeFilter(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const selectProduct = (product: Product) => {
     if (!authenticated) {
       navigate('/login');

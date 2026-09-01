@@ -2993,6 +2993,20 @@ fieldset.field legend {
 .breadcrumb .sep { color: var(--border-strong); }
 
 /* ====================== Dashboard ====================== */
+.dashboard-search-bar {
+  margin-bottom: var(--space-4);
+}
+.dashboard-search-bar .search-console {
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border);
+  padding: var(--space-3);
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
 .dashboard-quick-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

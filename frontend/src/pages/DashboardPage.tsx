@@ -45,6 +45,12 @@ interface OfferSummary {
   productType: string;
 }
 
+interface VerticalCount {
+  vertical: string;
+  productType: string;
+  count: number;
+}
+
 function statusVariant(s: string): string {
   const v = s.toLowerCase();
   if (v === 'paid' || v === 'issued' || v === 'confirmed') return 'success';
@@ -77,26 +83,31 @@ export default function DashboardPage() {
   const [loyalty, setLoyalty] = useState<Loyalty | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [offers, setOffers] = useState<OfferSummary[]>([]);
+  const [verticals, setVerticals] = useState<VerticalCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [o, l, n, off] = await Promise.allSettled([
+      const [o, l, n, off, v] = await Promise.allSettled([
         api.get<Order[]>('/orders/mine'),
         api.get<Loyalty>('/loyalty').catch(() => null),
         api.get<Notification[]>('/notifications').catch(() => []),
         api.get<unknown[]>('/offers').catch(() => []),
+        api.get<unknown[]>('/search/verticals').catch(() => []),
       ]);
       if (o.status === 'fulfilled') setOrders((o.value as unknown as Order[]) ?? []);
       if (l.status === 'fulfilled' && l.value) setLoyalty(l.value as Loyalty);
       if (n.status === 'fulfilled') setNotifications((n.value as unknown as Notification[]) ?? []);
       if (off.status === 'fulfilled') {
         const arr = (off.value as unknown as OfferSummary[]) ?? [];
-        // Normalize offer fields — backend returns {currentPrice, originalPrice, ...}
         setOffers(arr.slice(0, 6));
+      }
+      if (v.status === 'fulfilled') {
+        setVerticals((v.value as unknown as VerticalCount[]) ?? []);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
@@ -134,6 +145,67 @@ export default function DashboardPage() {
       />
 
       {error && <Alert kind="danger">{error}</Alert>}
+
+      {/* ── Quick search bar ── */}
+      <div className="dashboard-search-bar">
+        <div className="search-console" role="search">
+          <div className="field" style={{ flex: 2 }}>
+            <label htmlFor="dash-search">🔍 Search</label>
+            <input
+              id="dash-search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (searchQuery.trim()) {
+                    navigate(`/marketplace?search=${encodeURIComponent(searchQuery.trim())}`);
+                  } else {
+                    navigate('/marketplace');
+                  }
+                }
+              }}
+              placeholder="Search any bus, train, flight, movie, event…"
+            />
+          </div>
+          <button
+            className="btn primary"
+            onClick={() => {
+              if (searchQuery.trim()) {
+                navigate(`/marketplace?search=${encodeURIComponent(searchQuery.trim())}`);
+              } else {
+                navigate('/marketplace');
+              }
+            }}
+          >
+            Search
+          </button>
+        </div>
+      </div>
+
+      {/* ── Vertical shortcuts ── */}
+      <div className="shelf" style={{ marginBottom: 'var(--space-4)' }}>
+        {verticals.map((v) => (
+          <Link
+            key={v.productType}
+            to={`/marketplace?type=${v.productType}`}
+            className="shelf-card"
+          >
+            <div className="ico">{v.vertical.includes('TRAIN') ? '🚆' : v.vertical.includes('BUS') ? '🚌' : v.vertical.includes('FLIGHT') ? '✈️' : v.vertical.includes('MOVIE') ? '🎬' : v.vertical.includes('EVENT') ? '🎟️' : '🎫'}</div>
+            <strong style={{ fontSize: '0.85rem' }}>{v.vertical}</strong>
+            <div className="count">{v.count} live</div>
+          </Link>
+        ))}
+        <Link to="/movies" className="shelf-card">
+          <div className="ico">🎬</div>
+          <strong style={{ fontSize: '0.85rem' }}>Movies</strong>
+          <div className="count">Browse</div>
+        </Link>
+        <Link to="/marketplace" className="shelf-card">
+          <div className="ico">🌐</div>
+          <strong style={{ fontSize: '0.85rem' }}>All</strong>
+          <div className="count">Browse all</div>
+        </Link>
+      </div>
 
       {/* ── Stats row ── */}
       <div className="stats">
