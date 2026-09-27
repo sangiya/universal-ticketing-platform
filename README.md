@@ -206,3 +206,7 @@ cd frontend && npm run build   # type-checks + produces the PWA
 ## License
 
 MIT
+
+## Open Source Contributions
+
+- **scorelab-Ticket** · Ticket management web application (Java EE/JSP + SQL) — SCORE Lab open-source project
