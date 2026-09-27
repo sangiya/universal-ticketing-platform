@@ -40,7 +40,7 @@ public class WalletService {
                 .orElseGet(() -> walletRepository.save(new Wallet(tenantId, userId, currency)));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public WalletResponse getMyWallet() {
         var user = userRepository.findByUsername(currentUser.username())
                 .orElseThrow(() -> new NotFoundException("Authenticated user not found"));
@@ -61,7 +61,7 @@ public class WalletService {
         return new WalletResponse(w.getId(), w.getBalance(), w.getCurrencyIso(), w.getUpdatedAt());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<WalletTransaction> history() {
         var user = userRepository.findByUsername(currentUser.username())
                 .orElseThrow(() -> new NotFoundException("Authenticated user not found"));

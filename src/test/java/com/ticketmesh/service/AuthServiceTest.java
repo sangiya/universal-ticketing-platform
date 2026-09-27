@@ -90,10 +90,12 @@ class AuthServiceTest {
         Tenant provisioned = tenantCaptor.getValue();
         assertEquals("agentshop-shop", provisioned.getSlug());
         assertEquals("Agent Shop Shop", provisioned.getName());
-        assertEquals("LK", provisioned.getCountryIso());
-        assertEquals("LKR", provisioned.getCurrencyIso());
+        // Global platform defaults: unknown country/currency/timezone until the agent
+        // completes onboarding (neutral ISO 3166-2 user-assigned code "ZZ").
+        assertEquals("ZZ", provisioned.getCountryIso());
+        assertEquals("USD", provisioned.getCurrencyIso());
         assertEquals("en", provisioned.getDefaultLanguage());
-        assertEquals("Asia/Colombo", provisioned.getTimezone());
+        assertEquals("UTC", provisioned.getTimezone());
         assertEquals(Tenant.ModerationMode.INSTANT, provisioned.getModerationMode());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
