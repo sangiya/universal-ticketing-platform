@@ -209,4 +209,4 @@ MIT
 
 ## Open Source Contributions
 
-- **scorelab-Ticket** · Ticket management web application (Java EE/JSP + SQL) — SCORE Lab open-source project
+- **scorelab-Ticket** · Ticket management web application (Java EE/JSP + SQL, SCORE Lab open-source project)
