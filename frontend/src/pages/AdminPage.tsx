@@ -12,6 +12,14 @@ import {
 } from '../components/UI';
 import { useToast } from '../components/Toast';
 
+interface ProductTypeStat {
+  productType: string;
+  vertical: string;
+  productCount: number;
+  orderCount: number;
+  revenue: number;
+}
+
 interface DashboardStats {
   totalUsers: number;
   customers: number;
@@ -26,6 +34,11 @@ interface DashboardStats {
   totalProducts: number;
   enabledProducts: number;
   totalBookings: number;
+  totalOrders?: number;
+  gmv?: number;
+  gmvCurrency?: string;
+  distinctProductTypes?: number;
+  productTypeStats?: ProductTypeStat[];
 }
 
 interface Shop {
@@ -476,6 +489,104 @@ export default function AdminPage() {
                   icon="📦"
                 />
                 <StatCard label="Total bookings" value={stats.totalBookings} icon="🎫" variant="violet" />
+              </div>
+
+              {/* Universal commerce — every product domain, not travel-only */}
+              <div className="stats">
+                <StatCard
+                  label="Paid orders (all domains)"
+                  value={stats.totalOrders ?? 0}
+                  icon="🧾"
+                  variant="violet"
+                />
+                <StatCard
+                  label={`GMV (${stats.gmvCurrency ?? 'LKR'})`}
+                  value={`${stats.gmvCurrency ?? 'LKR'} ${Number(stats.gmv ?? 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`}
+                  icon="💰"
+                  variant="success"
+                />
+                <StatCard
+                  label="Live product domains"
+                  value={stats.distinctProductTypes ?? 0}
+                  icon="🌐"
+                />
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>🌐 Revenue by product domain</h3>
+                <p className="muted" style={{ marginTop: '-0.5rem' }}>
+                  Universal breakdown across every ticket type — bus, train, movie, event, sports, flight, ferry,
+                  attraction and custom services.
+                </p>
+                {!stats.productTypeStats || stats.productTypeStats.length === 0 ? (
+                  <EmptyState
+                    icon="🌐"
+                    title="No product domains yet"
+                    description="Agents publish services; domains appear here once products go live."
+                  />
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Product type</th>
+                          <th>Vertical</th>
+                          <th className="right">Products</th>
+                          <th className="right">Orders</th>
+                          <th className="right">Revenue</th>
+                          <th style={{ width: '32%' }}>Share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.productTypeStats.map((s) => {
+                          const max = Math.max(
+                            ...stats.productTypeStats!.map((x) => Number(x.revenue ?? 0)),
+                            1
+                          );
+                          const pct = Math.round((Number(s.revenue ?? 0) / max) * 100);
+                          return (
+                            <tr key={s.productType}>
+                              <td>
+                                <span className="tag">{s.productType}</span>
+                              </td>
+                              <td className="muted">{s.vertical}</td>
+                              <td className="right">{s.productCount}</td>
+                              <td className="right">{s.orderCount}</td>
+                              <td className="right currency">
+                                {stats.gmvCurrency ?? 'LKR'} {Number(s.revenue ?? 0).toFixed(2)}
+                              </td>
+                              <td>
+                                <div
+                                  aria-hidden
+                                  style={{
+                                    height: 8,
+                                    borderRadius: 4,
+                                    background: 'var(--border)',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: `${pct}%`,
+                                      height: '100%',
+                                      background: 'var(--gradient)',
+                                    }}
+                                  />
+                                </div>
+                                <span className="muted" style={{ fontSize: '0.72rem' }}>
+                                  {pct}% of top domain
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

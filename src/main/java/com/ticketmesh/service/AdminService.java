@@ -2,6 +2,7 @@ package com.ticketmesh.service;
 
 import com.ticketmesh.dto.AdminStatsResponse;
 import com.ticketmesh.dto.OrderSummary;
+import com.ticketmesh.dto.ProductTypeStat;
 import com.ticketmesh.dto.ShopResponse;
 import com.ticketmesh.dto.UserSummary;
 import com.ticketmesh.model.AgentShop;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Read-only operational surface for the platform admin console.
@@ -72,13 +74,63 @@ public class AdminService {
         List<ProviderProduct> products = productRepository.findAll();
         long enabledProducts = products.stream().filter(ProviderProduct::isEnabled).count();
 
+        // ---- Universal commerce metrics (every product domain, not just travel) ----
+        List<ProductOrder> orders = orderRepository.findAll();
+        List<ProductOrder> paidOrders = orders.stream()
+                .filter(o -> o.getStatus() == ProductOrder.Status.PAID
+                        || o.getStatus() == ProductOrder.Status.ISSUED
+                        || o.getStatus() == ProductOrder.Status.USED)
+                .toList();
+
+        // Single-currency GMV only (never sum mixed currencies silently).
+        String gmvCurrency = paidOrders.stream()
+                .map(ProductOrder::getCurrencyIso)
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse("LKR");
+        java.math.BigDecimal gmv = paidOrders.stream()
+                .filter(o -> gmvCurrency.equals(o.getCurrencyIso()))
+                .map(ProductOrder::getTotalAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        // Per product type (universal) with provider vertical + catalog count.
+        Map<String, Long> ordersByType = paidOrders.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        ProductOrder::getProductType, java.util.stream.Collectors.counting()));
+        Map<String, java.math.BigDecimal> revenueByType = paidOrders.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        ProductOrder::getProductType,
+                        java.util.stream.Collectors.reducing(java.math.BigDecimal.ZERO,
+                                ProductOrder::getTotalAmount, java.math.BigDecimal::add)));
+        Map<String, Long> catalogByType = products.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        p -> p.getProductType().name(), java.util.stream.Collectors.counting()));
+        Map<Long, String> verticalByProvider = providers.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Provider::getId, p -> p.getVertical().name(), (a, b) -> a));
+
+        java.util.TreeSet<String> allTypes = new java.util.TreeSet<>(catalogByType.keySet());
+        allTypes.addAll(ordersByType.keySet());
+
+        List<ProductTypeStat> typeStats = allTypes.stream().map(type -> {
+            long catalog = catalogByType.getOrDefault(type, 0L);
+            String vertical = products.stream()
+                    .filter(p -> p.getProductType().name().equals(type))
+                    .map(p -> verticalByProvider.getOrDefault(p.getProvider().getId(), "OTHER"))
+                    .findFirst().orElse("OTHER");
+            return new ProductTypeStat(type, vertical, catalog,
+                    ordersByType.getOrDefault(type, 0L),
+                    revenueByType.getOrDefault(type, java.math.BigDecimal.ZERO));
+        }).toList();
+
         return new AdminStatsResponse(
                 users.size(), customers, agents, admins,
                 tenantRepository.count(), activeTenants,
                 providers.size(), activeProviders,
                 pendingShops, approvedShops,
                 products.size(), enabledProducts,
-                countBookings());
+                countBookings(),
+                paidOrders.size(), gmv, gmvCurrency,
+                allTypes.size(), typeStats);
     }
 
     @Transactional(readOnly = true)
