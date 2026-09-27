@@ -222,15 +222,30 @@ export default function DashboardPage() {
 
       {/* ── Quick actions ── */}
       <div className="dashboard-quick-actions">
-        <Link to="/marketplace" className="quick-action">
+        <Link to="/marketplace?type=ROUTE" className="quick-action">
           <span className="quick-action-icon">🚌</span>
-          <span className="quick-action-label">Browse tickets</span>
-          <span className="quick-action-sub">Bus, train, flight, ferry</span>
+          <span className="quick-action-label">Bus tickets</span>
+          <span className="quick-action-sub">Intercity & local</span>
+        </Link>
+        <Link to="/marketplace?type=ROUTE" className="quick-action">
+          <span className="quick-action-icon">🚆</span>
+          <span className="quick-action-label">Train tickets</span>
+          <span className="quick-action-sub">Rail & express</span>
+        </Link>
+        <Link to="/marketplace?type=ROUTE" className="quick-action">
+          <span className="quick-action-icon">✈️</span>
+          <span className="quick-action-label">Flight tickets</span>
+          <span className="quick-action-sub">Domestic & international</span>
         </Link>
         <Link to="/movies" className="quick-action">
           <span className="quick-action-icon">🎬</span>
-          <span className="quick-action-label">Movies</span>
-          <span className="quick-action-sub">Now showing, premieres</span>
+          <span className="quick-action-label">Movie tickets</span>
+          <span className="quick-action-sub">Cinema & IMAX</span>
+        </Link>
+        <Link to="/marketplace?type=ADMISSION" className="quick-action">
+          <span className="quick-action-icon">🎟️</span>
+          <span className="quick-action-label">Events & shows</span>
+          <span className="quick-action-sub">Concerts & festivals</span>
         </Link>
         <Link to="/orders" className="quick-action">
           <span className="quick-action-icon">🧾</span>
@@ -241,6 +256,11 @@ export default function DashboardPage() {
           <span className="quick-action-icon">🎟️</span>
           <span className="quick-action-label">My tickets</span>
           <span className="quick-action-sub">{paidOrders.length} active</span>
+        </Link>
+        <Link to="/marketplace" className="quick-action">
+          <span className="quick-action-icon">🌐</span>
+          <span className="quick-action-label">Browse all</span>
+          <span className="quick-action-sub">All categories</span>
         </Link>
       </div>
 
