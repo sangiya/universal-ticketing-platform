@@ -25,6 +25,15 @@ app:
     hold-timeout-ms: 3600000
     scheduler-interval-ms: 60000
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
 logging:
   level:
     org.springframework.security: WARN

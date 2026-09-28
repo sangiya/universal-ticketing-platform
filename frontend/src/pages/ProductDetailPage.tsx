@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
-import { Alert, Currency, EmptyState, Modal } from '../components/UI';
+import { Alert, Currency, Modal } from '../components/UI';
 import SeatSelection, {
   type Seat,
   type SeatLayout,

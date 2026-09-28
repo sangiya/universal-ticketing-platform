@@ -2,7 +2,7 @@
 -- Adds offer/deal fields to provider_products table so individual tickets can be
 -- marked as special-time-limited deals (distinct from discount coupon codes).
 
-ALTER TABLE provider_products ADD COLUMN is_offer TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE provider_products ADD COLUMN is_offer BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE provider_products ADD COLUMN original_price DECIMAL(12,2) DEFAULT NULL;
 ALTER TABLE provider_products ADD COLUMN discount_percent INT DEFAULT NULL;
 ALTER TABLE provider_products ADD COLUMN deal_type VARCHAR(20) DEFAULT NULL;

@@ -1,9 +1,8 @@
-version: "3.8"
-
 # TicketMesh fully-working local stack: MySQL (persistent datastore) + backend
 # (Spring Boot) + frontend (nginx serving the built SPA, proxying /api).
 #
-# Run:  docker compose -f docker-compose.yml up --build -d
+# Build: mvn -DskipTests package && npm --prefix frontend run build
+# Run:   docker compose up --build -d
 # Web:  http://localhost       (SPA, served by nginx)
 # API:  http://localhost:8080  (backend)
 # Login: admin / ChangeMe123!
@@ -29,8 +28,11 @@ services:
 
   app:
     build:
-      context: ./docker/app
-      dockerfile: Dockerfile
+      # Repo root context so the image always picks up the freshly built jar
+      # from target/ (previously the jar was copied into docker/app by hand,
+      # which silently shipped stale code).
+      context: .
+      dockerfile: docker/app/Dockerfile
     container_name: ticketmesh-app
     environment:
       DB_URL: "jdbc:mysql://mysql:3306/ticketmesh_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"

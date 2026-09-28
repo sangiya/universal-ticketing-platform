@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -103,7 +104,7 @@ class RestApiContractIT {
                 .body(request)
                 .when().post("/api/auth/register")
                 .then()
-                .statusCode(200)
+                .statusCode(201)
                 .body("accessToken", notNullValue())
                 .body("tokenType", equalTo("Bearer"))
                 .body("username", notNullValue())
@@ -127,7 +128,7 @@ class RestApiContractIT {
                 .body(first)
                 .when().post("/api/auth/register")
                 .then()
-                .statusCode(200);
+                .statusCode(201);
 
         Map<String, Object> second = new HashMap<>();
         second.put("username", uniqueUser);
@@ -175,7 +176,7 @@ class RestApiContractIT {
                 .contentType(ContentType.JSON)
                 .body(register)
                 .when().post("/api/auth/register")
-                .then().statusCode(200);
+                .then().statusCode(201);
 
         Map<String, Object> login = new HashMap<>();
         login.put("username", username);
@@ -264,5 +265,70 @@ class RestApiContractIT {
                 .when().get("/actuator/info")
                 .then()
                 .statusCode(200);
+    }
+
+    @Test
+    void nonNumericCatalogIdReturns400Not500() {
+        given()
+                .when().get("/api/catalog/not-a-number")
+                .then()
+                .statusCode(400)
+                .body("status", equalTo(400));
+    }
+
+    @Test
+    void unknownApiPathDoesNotLeakServerError() {
+        // Unknown paths sit behind anyRequest().authenticated(), so the security
+        // filter answers 401 before routing. Either way it must never be a 500.
+        given()
+                .when().get("/api/definitely-not-a-real-endpoint")
+                .then()
+                .statusCode(anyOf(is(401), is(404)));
+    }
+
+    @Test
+    void missingRequiredParamReturns400Not500() {
+        given()
+                .when().get("/api/tickets/verify")
+                .then()
+                .statusCode(400)
+                .body("status", equalTo(400));
+    }
+
+    @Test
+    void authenticatedRequestToUnknownApiPathReturns404() {
+        String username = "probe_" + System.currentTimeMillis();
+        String email = username + "@example.com";
+
+        Map<String, Object> register = new HashMap<>();
+        register.put("username", username);
+        register.put("password", "strongpass123");
+        register.put("fullName", "Probe User");
+        register.put("email", email);
+        register.put("role", "CUSTOMER");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(register)
+                .when().post("/api/auth/register")
+                .then().statusCode(201);
+
+        Map<String, Object> login = new HashMap<>();
+        login.put("username", username);
+        login.put("password", "strongpass123");
+
+        String token = given()
+                .contentType(ContentType.JSON)
+                .body(login)
+                .when().post("/api/auth/login")
+                .then().statusCode(200)
+                .extract().path("accessToken");
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .when().get("/api/definitely-not-a-real-endpoint")
+                .then()
+                .statusCode(404)
+                .body("status", equalTo(404));
     }
 }

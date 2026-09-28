@@ -42,6 +42,9 @@ class TestcontainersDatabaseIT {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
+        // src/test/resources/application.yml defaults to H2; force the real MySQL
+        // driver so the containerised database is actually exercised.
+        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         // Avoid hitting external services in tests

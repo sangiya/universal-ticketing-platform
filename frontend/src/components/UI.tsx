@@ -203,11 +203,13 @@ export function Alert({
   title,
   children,
   onClose,
+  style,
 }: {
   kind?: 'info' | 'success' | 'warning' | 'danger';
   title?: ReactNode;
   children?: ReactNode;
   onClose?: () => void;
+  style?: React.CSSProperties;
 }) {
   const styles: Record<string, { bg: string; color: string; border: string; icon: string }> = {
     info: { bg: 'var(--info-50)', color: 'var(--info-700)', border: 'var(--info)', icon: 'ℹ' },
@@ -228,6 +230,7 @@ export function Alert({
         display: 'flex',
         alignItems: 'flex-start',
         gap: '0.6rem',
+        ...style,
       }}
     >
       <span style={{ fontWeight: 800 }}>{s.icon}</span>

@@ -13,8 +13,8 @@ ALTER TABLE provider_products ADD COLUMN director VARCHAR(160) DEFAULT NULL;
 ALTER TABLE provider_products ADD COLUMN release_date DATE DEFAULT NULL;
 ALTER TABLE provider_products ADD COLUMN poster_url VARCHAR(500) DEFAULT NULL;
 ALTER TABLE provider_products ADD COLUMN banner_url VARCHAR(500) DEFAULT NULL;
-ALTER TABLE provider_products ADD COLUMN is_premiere TINYINT(1) NOT NULL DEFAULT 0;
-ALTER TABLE provider_products ADD COLUMN is_now_showing TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE provider_products ADD COLUMN is_premiere BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE provider_products ADD COLUMN is_now_showing BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE provider_products ADD COLUMN tagline VARCHAR(200) DEFAULT NULL;
 
 CREATE INDEX idx_pp_language ON provider_products (language);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
-import { Alert, Currency, EmptyState, PageHeader, SectionTitle } from '../components/UI';
+import { Alert, Currency, EmptyState, PageHeader } from '../components/UI';
 
 interface TicketDetail {
   orderRef: string;
@@ -18,8 +18,9 @@ interface TicketDetail {
   createdAt: string;
   paidAt: string | null;
   quantity: number;
+  /** Signed QR payload issued by the backend (MarketplaceTicketResponse.qrData). */
+  qrData?: string;
   ticketCode?: string;
-  qrPayload?: string;
   seatNumbers?: string[];
   holderName?: string;
   holderEmail?: string;
@@ -58,6 +59,10 @@ export default function TicketDetailPage() {
   const [verifyResult, setVerifyResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
 
+  // Bookings expose a short ticket code; marketplace orders carry the signed
+  // qrData payload. Either one is accepted by /api/tickets/verify?data=...
+  const ticketCode = ticket?.qrData ?? ticket?.ticketCode;
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -75,12 +80,12 @@ export default function TicketDetailPage() {
   useEffect(() => { void load(); }, [load]);
 
   const verifyTicket = async () => {
-    if (!ticket?.ticketCode) return;
+    if (!ticketCode) return;
     setVerifyLoading(true);
     setVerifyResult(null);
     try {
       const result = await api.get<{ valid: boolean; message: string }>(
-        `/tickets/verify?code=${encodeURIComponent(ticket.ticketCode)}`,
+        `/tickets/verify?data=${encodeURIComponent(ticketCode)}`,
       );
       setVerifyResult(result as unknown as { valid: boolean; message: string });
     } catch (e) {
@@ -239,11 +244,15 @@ export default function TicketDetailPage() {
             )}
           </div>
 
-          {ticket.qrPayload && (
+          {(id || ticket.bookingId) && (
             <div className="ticket-qr-wrap">
               <div className="ticket-qr">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(ticket.qrPayload)}`}
+                  src={
+                    ticket.bookingId
+                      ? `/api/tickets/booking/${ticket.bookingId}/qr`
+                      : `/api/tickets/order/${encodeURIComponent(id ?? '')}/qr`
+                  }
                   alt="Ticket QR code"
                 />
               </div>
@@ -258,7 +267,7 @@ export default function TicketDetailPage() {
         <aside className="ticket-aside">
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Actions</h3>
-            {isOpen && ticket.ticketCode && (
+            {isOpen && ticketCode && (
               <button
                 className="btn block"
                 onClick={verifyTicket}
