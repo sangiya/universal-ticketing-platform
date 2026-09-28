@@ -15,6 +15,7 @@ import com.ticketmesh.model.Booking;
 import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.repository.BookingRepository;
 import com.ticketmesh.repository.ProductOrderRepository;
+import com.ticketmesh.repository.RefundPolicyWindowRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,18 +41,21 @@ public class TicketService {
     private final BookingRepository bookingRepository;
     private final ProductOrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final RefundPolicyWindowRepository refundPolicyWindowRepository;
     private final CurrentUser currentUser;
     private final String qrSecret;
 
     public TicketService(BookingRepository bookingRepository,
                          ProductOrderRepository orderRepository,
                          UserRepository userRepository,
+                         RefundPolicyWindowRepository refundPolicyWindowRepository,
                          CurrentUser currentUser,
                          @Value("${app.qr.secret}") String qrSecret) {
         this.bookingRepository = bookingRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.currentUser = currentUser;
+        this.refundPolicyWindowRepository = refundPolicyWindowRepository;
         this.qrSecret = qrSecret;
     }
 
@@ -107,7 +111,25 @@ public class TicketService {
                 order.getCreatedAt(),
                 order.getPaidAt(),
                 order.getHoldExpiresAt(),
-                signMarketplacePayload(order));
+                signMarketplacePayload(order),
+                cancellationPolicyFor(order));
+    }
+
+    /**
+     * Refund windows that apply to this order's product, for the policy card.
+     */
+    private java.util.List<com.ticketmesh.dto.CancellationPolicyResponse> cancellationPolicyFor(
+            ProductOrder order) {
+        if (order.getProduct() == null) {
+            return java.util.List.of();
+        }
+        return refundPolicyWindowRepository.findByProductId(order.getProduct().getId()).stream()
+                .sorted(java.util.Comparator.comparingInt(
+                        com.ticketmesh.model.RefundPolicyWindow::getMinHoursBeforeEvent).reversed())
+                .map(w -> new com.ticketmesh.dto.CancellationPolicyResponse(
+                        w.getMinHoursBeforeEvent(), w.getRefundPercent(),
+                        w.getFeeAmount(), w.getFeePercent(), w.getLabel()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -3,12 +3,14 @@ package com.ticketmesh.config;
 import com.ticketmesh.model.AgentShop;
 import com.ticketmesh.model.Provider;
 import com.ticketmesh.model.ProviderProduct;
+import com.ticketmesh.model.RefundPolicyWindow;
 import com.ticketmesh.model.Tenant;
 import com.ticketmesh.model.TenantBranding;
 import com.ticketmesh.model.User;
 import com.ticketmesh.repository.AgentShopRepository;
 import com.ticketmesh.repository.ProviderProductRepository;
 import com.ticketmesh.repository.ProviderRepository;
+import com.ticketmesh.repository.RefundPolicyWindowRepository;
 import com.ticketmesh.repository.TenantBrandingRepository;
 import com.ticketmesh.repository.TenantRepository;
 import com.ticketmesh.repository.UserRepository;
@@ -42,6 +44,7 @@ public class BootstrapSeeder implements ApplicationRunner {
     private final AgentShopRepository shopRepository;
     private final ProviderRepository providerRepository;
     private final ProviderProductRepository productRepository;
+    private final RefundPolicyWindowRepository refundPolicyWindowRepository;
     private final PasswordEncoder passwordEncoder;
     private final String adminUsername;
     private final String adminPassword;
@@ -52,6 +55,7 @@ public class BootstrapSeeder implements ApplicationRunner {
                            AgentShopRepository shopRepository,
                            ProviderRepository providerRepository,
                            ProviderProductRepository productRepository,
+                           RefundPolicyWindowRepository refundPolicyWindowRepository,
                            PasswordEncoder passwordEncoder,
                            @Value("${app.bootstrap.admin-username:admin}") String adminUsername,
                            @Value("${app.bootstrap.admin-password:ChangeMe123!}") String adminPassword) {
@@ -61,6 +65,7 @@ public class BootstrapSeeder implements ApplicationRunner {
         this.shopRepository = shopRepository;
         this.providerRepository = providerRepository;
         this.productRepository = productRepository;
+        this.refundPolicyWindowRepository = refundPolicyWindowRepository;
         this.passwordEncoder = passwordEncoder;
         this.adminUsername = adminUsername;
         this.adminPassword = adminPassword;
@@ -191,10 +196,52 @@ public class BootstrapSeeder implements ApplicationRunner {
                         "LKR", 40 + (index * 7),
                         descriptionFor(seed.vertical(), type), null);
                 productRepository.save(product);
-            }
+                seedRefundPolicy(product, seed.vertical(), type);            }
         }
         log.info("Seeded universal demo catalog across {} verticals for shop {}",
                 seeds.size(), shop.getId());
+    }
+
+    /**
+     * Give each demo product a refund policy that matches how its vertical actually
+     * sells (spec section 26). Transport and attractions are typically flexible
+     * until shortly before departure; events and cinema get stingier as the
+     * event approaches.
+     */
+    private void seedRefundPolicy(ProviderProduct product, Provider.ProviderVertical vertical,
+                                  ProviderProduct.ProductType type) {
+        if (product.getId() == null) {
+            return;
+        }
+        Long productId = product.getId();
+        switch (vertical) {
+            case BUS, TRAIN, FERRY, FLIGHT -> {
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 24,
+                        new BigDecimal("100.00"), null, null, "More than 24h before departure"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 2,
+                        new BigDecimal("50.00"), new BigDecimal("250.00"), null, "2-24h before departure"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 0,
+                        BigDecimal.ZERO, null, null, "Less than 2h before departure"));
+            }
+            case MOVIE, EVENT, SPORTS -> {
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 168,
+                        new BigDecimal("100.00"), null, null, "More than 7 days before"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 24,
+                        new BigDecimal("75.00"), null, null, "1-7 days before"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 4,
+                        new BigDecimal("50.00"), new BigDecimal("200.00"), null, "4-24 hours before"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 0,
+                        BigDecimal.ZERO, null, null, "Less than 4 hours before"));
+            }
+            case ATTRACTION -> {
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 48,
+                        new BigDecimal("100.00"), null, null, "More than 2 days before visit"));
+                refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 0,
+                        new BigDecimal("50.00"), null, null, "Same day"));
+            }
+            default -> refundPolicyWindowRepository.save(new RefundPolicyWindow(productId, 0,
+                    new BigDecimal("100.00"), null, null, "Full refund any time before use"));
+        }
     }
 
     private String productTitle(Provider.ProviderVertical v, ProviderProduct.ProductType t, int i) {

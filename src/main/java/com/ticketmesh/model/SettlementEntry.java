@@ -69,5 +69,19 @@ public class SettlementEntry {
     public String getCurrencyIso() { return currencyIso; }
     public Status getStatus() { return status; }
 
+    /**
+     * Hold the payout while a cancellation is being processed.
+     */
+    public void hold() {
+        this.status = Status.HOLD;
+    }
+
+    /**
+     * Mark the payout as clawed back after a refund (spec section 26).
+     */
+    public void markRefunded() {
+        this.status = Status.REFUNDED;
+    }
+
     public enum Status { PENDING_PAYOUT, PAID_OUT, REFUNDED, HOLD }
 }

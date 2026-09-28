@@ -118,6 +118,32 @@ public class ProductOrder {
     @Column(name = "hold_expires_at")
     private Instant holdExpiresAt;
 
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Column(name = "cancellation_reason", length = 255)
+    private String cancellationReason;
+
+    @Column(name = "refunded_at")
+    private Instant refundedAt;
+
+    @Column(name = "refunded_amount", precision = 12, scale = 2)
+    private BigDecimal refundedAmount;
+
+    @Column(name = "cancellation_fee", precision = 12, scale = 2)
+    private BigDecimal cancellationFee;
+
+    /** Serialised refund policy in force at purchase time, for audit. */
+    @Column(name = "policy_snapshot")
+    private String policySnapshot;
+
+    /** Loyalty points awarded when the order was paid, so a refund can claw them back. */
+    @Column(name = "loyalty_points_granted", nullable = false)
+    private long loyaltyPointsGranted;
+
+    @Column(name = "refund_reference", length = 64)
+    private String refundReference;
+
     public ProductOrder() {
     }
 
@@ -258,6 +284,65 @@ public class ProductOrder {
 
     public void setHoldExpiresAt(Instant holdExpiresAt) {
         this.holdExpiresAt = holdExpiresAt;
+    }
+
+    public Instant getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public String getCancellationReason() {
+        return cancellationReason;
+    }
+
+    public void setCancellationReason(String cancellationReason) {
+        this.cancellationReason = cancellationReason;
+    }
+
+    public Instant getRefundedAt() {
+        return refundedAt;
+    }
+
+    public BigDecimal getRefundedAmount() {
+        return refundedAmount;
+    }
+
+    public BigDecimal getCancellationFee() {
+        return cancellationFee;
+    }
+
+    public String getPolicySnapshot() {
+        return policySnapshot;
+    }
+
+    public void setPolicySnapshot(String policySnapshot) {
+        this.policySnapshot = policySnapshot;
+    }
+
+    public long getLoyaltyPointsGranted() {
+        return loyaltyPointsGranted;
+    }
+
+    public void setLoyaltyPointsGranted(long loyaltyPointsGranted) {
+        this.loyaltyPointsGranted = loyaltyPointsGranted;
+    }
+
+    public String getRefundReference() {
+        return refundReference;
+    }
+
+    /**
+     * Record a terminal cancellation and the money that came back.
+     */
+    public void applyCancellation(RefundOutcome outcome) {
+        this.status = outcome.refunded() ? Status.REFUNDED : Status.CANCELLED;
+        this.cancelledAt = Instant.now();
+        this.cancellationReason = outcome.reason();
+        this.cancellationFee = outcome.fee();
+        if (outcome.refunded()) {
+            this.refundedAt = this.cancelledAt;
+            this.refundedAmount = outcome.refundAmount();
+            this.refundReference = outcome.reference();
+        }
     }
 
     public enum Status {

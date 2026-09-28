@@ -110,7 +110,11 @@ class ProductOrderServiceTest {
         assertEquals("Airport Transfer", order.getProductTitle());
         assertEquals("Test Provider", order.getProviderName());
         assertEquals(2, order.getQuantity());
-        assertEquals(0, new BigDecimal("5600.00").compareTo(order.getTotalAmount()));
+        // Per-unit subtotal 5600.00 x quantity 2 = 11200.00
+        assertEquals(0, new BigDecimal("11200.00").compareTo(order.getTotalAmount()));
+        assertEquals(0, new BigDecimal("10000.00").compareTo(order.getBaseAmount()));
+        assertEquals(0, new BigDecimal("1000.00").compareTo(order.getTaxAmount()));
+        assertEquals(0, new BigDecimal("200.00").compareTo(order.getServiceFee()));
         assertEquals(ProductOrder.Status.PAID, order.getStatus());
         verify(orderRepository).save(any(ProductOrder.class));
         verify(productRepository).save(product);
@@ -119,6 +123,41 @@ class ProductOrderServiceTest {
                 eq("ORDER_CREATED"), any(String.class));
         verify(loyaltyService).earnWithRef(anyLong(), anyLong(), anyLong(), any(String.class),
                 any(com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.class), any(String.class));
+    }
+
+    @Test
+    void create_totalScalesWithQuantity() {
+        PricingService.Breakdown breakdown = new PricingService.Breakdown(
+                new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("100.00"),
+                BigDecimal.ZERO, new BigDecimal("5600.00"), new BigDecimal("5600.00"),
+                "LKR", "LKR", null, new BigDecimal("5600.00"), null);
+        when(pricingService.breakdown(eq(product), isNull(), eq("LKR"), anyLong(), eq(99L)))
+                .thenReturn(breakdown);
+        when(pricingService.redeemAndDiscount(anyLong(), isNull(),
+                any(BigDecimal.class), any())).thenReturn(BigDecimal.ZERO);
+
+        ProductOrder three = orderService.create(1L, 1L, 3, null);
+        ProductOrder one = orderService.create(1L, 1L, 1, null);
+
+        assertEquals(0, new BigDecimal("16800.00").compareTo(three.getTotalAmount()));
+        assertEquals(0, new BigDecimal("5600.00").compareTo(one.getTotalAmount()));
+    }
+
+    @Test
+    void create_discountAppliesToFullQuantity() {
+        PricingService.Breakdown breakdown = new PricingService.Breakdown(
+                new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("100.00"),
+                BigDecimal.ZERO, new BigDecimal("5600.00"), new BigDecimal("5600.00"),
+                "LKR", "LKR", "WELCOME10", new BigDecimal("5600.00"), "Welcome 10%");
+        when(pricingService.breakdown(eq(product), eq("WELCOME10"), eq("LKR"), anyLong(), eq(99L)))
+                .thenReturn(breakdown);
+        when(pricingService.redeemAndDiscount(anyLong(), eq("WELCOME10"),
+                any(BigDecimal.class), any())).thenReturn(new BigDecimal("1120.00"));
+
+        ProductOrder order = orderService.create(1L, 1L, 2, "WELCOME10");
+
+        // 11200.00 subtotal - 1120.00 discount
+        assertEquals(0, new BigDecimal("10080.00").compareTo(order.getTotalAmount()));
     }
 
     @Test

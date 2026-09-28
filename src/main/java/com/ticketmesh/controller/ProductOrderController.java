@@ -1,8 +1,10 @@
 package com.ticketmesh.controller;
 
+import com.ticketmesh.dto.RefundQuote;
 import com.ticketmesh.exception.NotFoundException;
 import com.ticketmesh.model.ProductOrder;
 import com.ticketmesh.security.TenantGuard;
+import com.ticketmesh.service.CancellationService;
 import com.ticketmesh.service.ProductOrderService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -29,11 +31,14 @@ import java.util.List;
 public class ProductOrderController {
 
     private final ProductOrderService orderService;
+    private final CancellationService cancellationService;
     private final TenantGuard tenantGuard;
 
     public ProductOrderController(ProductOrderService orderService,
+                                  CancellationService cancellationService,
                                   TenantGuard tenantGuard) {
         this.orderService = orderService;
+        this.cancellationService = cancellationService;
         this.tenantGuard = tenantGuard;
     }
 
@@ -42,6 +47,9 @@ public class ProductOrderController {
             @NotNull Long productId,
             @Min(1) int quantity,
             String promoCode) {
+    }
+
+    record CancelOrderRequest(String reason) {
     }
 
     @PostMapping
@@ -82,5 +90,25 @@ public class ProductOrderController {
             @RequestParam(value = "tenantId", required = false) Long tenantId) {
         Long effectiveTenantId = tenantGuard.requireAccessTo(tenantId);
         return ResponseEntity.ok(orderService.byTenant(effectiveTenantId));
+    }
+
+    /**
+     * Price a cancellation without performing it, so the customer sees the exact
+     * refund and fee before confirming (spec section 26).
+     */
+    @GetMapping("/{orderRef}/refund-quote")
+    public ResponseEntity<RefundQuote> refundQuote(@PathVariable("orderRef") String orderRef) {
+        return ResponseEntity.ok(cancellationService.quote(orderRef));
+    }
+
+    /**
+     * Cancel an order, refunding to the wallet and clawing back loyalty points.
+     */
+    @PostMapping("/{orderRef}/cancel")
+    public ResponseEntity<RefundQuote> cancel(
+            @PathVariable("orderRef") String orderRef,
+            @RequestBody(required = false) CancelOrderRequest request) {
+        String reason = request == null ? null : request.reason();
+        return ResponseEntity.ok(cancellationService.cancel(orderRef, reason));
     }
 }

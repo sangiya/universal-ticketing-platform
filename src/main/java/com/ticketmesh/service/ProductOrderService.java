@@ -91,10 +91,11 @@ public class ProductOrderService {
         String oldStatus = order.getStatus().name();
         order.setStatus(ProductOrder.Status.PAID);
         order.setPaidAt(Instant.now());
-        orderRepository.save(order);
+        long points = order.getTotalAmount().longValue() / 10;
+        order.setLoyaltyPointsGranted(points);
         auditRepository.save(new OrderAuditLog(order, oldStatus, "PAID", "Payment verified", currentUser.username()));
         loyaltyService.earnWithRef(order.getTenant().getId(), user.getId(),
-                order.getTotalAmount().longValue() / 10, order.getOrderRef(),
+                points, order.getOrderRef(),
                 com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.ACCRUAL, "Order " + order.getOrderRef() + " paid");
         createSettlement(order);
         notificationService.notify(order.getTenant().getId(), user.getId(),
@@ -140,10 +141,15 @@ public class ProductOrderService {
                 product, promoCode, product.getCurrencyIso(), tenantId, user.getId());
         BigDecimal unitPrice = product.getPrice();
         String pType = product.getProductType() != null ? product.getProductType().name() : null;
+        BigDecimal qty = BigDecimal.valueOf(quantity);
+        // PricingService returns a per-unit breakdown, so every component has to be
+        // scaled by quantity before the order total is derived. Discounts are taken
+        // against the full order subtotal, not a single seat.
+        BigDecimal subtotal = b.subtotal.multiply(qty);
         BigDecimal discount = promoCode != null && !promoCode.isBlank()
-                ? pricingService.redeemAndDiscount(tenantId, promoCode, b.subtotal, pType)
+                ? pricingService.redeemAndDiscount(tenantId, promoCode, subtotal, pType)
                 : BigDecimal.ZERO;
-        BigDecimal total = b.subtotal.subtract(discount);
+        BigDecimal total = subtotal.subtract(discount);
         ProductOrder order = new ProductOrder(
                 generateRef(), product.getTenant(), user, product, quantity, unitPrice,
                 product.getCurrencyIso(), b.base.multiply(BigDecimal.valueOf(quantity)),
@@ -155,7 +161,9 @@ public class ProductOrderService {
         productRepository.save(product);
         auditRepository.save(new OrderAuditLog(order, "NONE", status.name(), "Order created", currentUser.username()));
         if (status == ProductOrder.Status.PAID) {
-            loyaltyService.earnWithRef(tenantId, user.getId(), total.longValue() / 10, order.getOrderRef(),
+            long points = total.longValue() / 10;
+            order.setLoyaltyPointsGranted(points);
+            loyaltyService.earnWithRef(tenantId, user.getId(), points, order.getOrderRef(),
                     com.ticketmesh.model.LoyaltyLedgerEntry.EntryType.ACCRUAL, "Order " + order.getOrderRef() + " created paid");
             createSettlement(order);
         }

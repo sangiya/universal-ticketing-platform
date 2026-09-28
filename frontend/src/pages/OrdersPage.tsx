@@ -28,6 +28,23 @@ interface ProductOrder {
   status: string;
   createdAt: string;
   paidAt: string | null;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
+  refundedAmount?: number | null;
+  cancellationFee?: number | null;
+  refundReference?: string | null;
+}
+
+interface RefundQuote {
+  orderRef: string;
+  refundable: boolean;
+  paidAmount: number;
+  refundAmount: number;
+  cancellationFee: number;
+  refundPercent: number;
+  reason: string;
+  windowLabel: string | null;
+  currencyIso: string;
 }
 
 const STATUS_FILTERS = [
@@ -55,6 +72,47 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<ProductOrder | null>(null);
+  const [quote, setQuote] = useState<RefundQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const openCancel = async (order: ProductOrder) => {
+    setCancelTarget(order);
+    setQuote(null);
+    setCancelError(null);
+    setQuoteLoading(true);
+    try {
+      const q = await api.get<RefundQuote>(
+        `/orders/${encodeURIComponent(order.orderRef)}/refund-quote`,
+      );
+      setQuote(q);
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : 'Could not load refund details');
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await api.post(
+        `/orders/${encodeURIComponent(cancelTarget.orderRef)}/cancel`,
+        { reason: 'Cancelled by customer' },
+      );
+      setCancelTarget(null);
+      setQuote(null);
+      await load();
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : 'Cancellation failed');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -236,15 +294,117 @@ export default function OrdersPage() {
                         Pay
                       </Link>
                     ) : o.status === 'PAID' || o.status === 'ISSUED' ? (
-                      <Link className="btn sm" to={`/ticket/${o.orderRef}`}>
-                        View ticket
-                      </Link>
+                      <>
+                        <Link className="btn sm" to={`/ticket/${o.orderRef}`}>
+                          View ticket
+                        </Link>{' '}
+                        <button
+                          className="btn sm danger"
+                          onClick={() => void openCancel(o)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : o.status === 'REFUNDED' && o.refundedAmount ? (
+                      <span className="muted fs-xs">
+                        Refunded{' '}
+                        <Currency amount={o.refundedAmount} currency={o.currencyIso} />
+                      </span>
+                    ) : o.status === 'CANCELLED' && o.cancellationFee ? (
+                      <span className="muted fs-xs">
+                        Fee <Currency amount={o.cancellationFee} currency={o.currencyIso} />
+                      </span>
                     ) : null}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div className="modal-backdrop" onClick={() => setCancelTarget(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Cancel order"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <h3>Cancel order</h3>
+              <button
+                className="btn-icon"
+                aria-label="Close"
+                onClick={() => setCancelTarget(null)}
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="muted">
+                <code className="tag">{cancelTarget.orderRef}</code>{' '}
+                {cancelTarget.productTitle}
+              </p>
+
+              {quoteLoading && <p className="muted">Checking refund policy…</p>}
+
+              {cancelError && <Alert kind="danger" title="Cancellation failed">{cancelError}</Alert>}
+
+              {quote && (
+                <>
+                  <div className="card" style={{ marginTop: 12 }}>
+                    <div className="kv">
+                      <span>Amount paid</span>
+                      <Currency amount={quote.paidAmount} currency={quote.currencyIso} />
+                    </div>
+                    <div className="kv">
+                      <span>Refund</span>
+                      <strong>
+                        <Currency amount={quote.refundAmount} currency={quote.currencyIso} />
+                      </strong>
+                    </div>
+                    <div className="kv">
+                      <span>Cancellation fee</span>
+                      <Currency amount={quote.cancellationFee} currency={quote.currencyIso} />
+                    </div>
+                  </div>
+
+                  <Alert
+                    kind={quote.refundable ? 'info' : 'warning'}
+                    title={quote.windowLabel ?? 'Cancellation policy'}
+                    style={{ marginTop: 12 }}
+                  >
+                    {quote.reason}. Refunds are returned to your TicketMesh wallet and any
+                    loyalty points from this order are reversed.
+                  </Alert>
+                </>
+              )}
+            </div>
+
+            <div className="modal-foot">
+              <button
+                className="btn"
+                onClick={() => setCancelTarget(null)}
+                disabled={cancelling}
+                type="button"
+              >
+                Keep order
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => void confirmCancel()}
+                disabled={cancelling || quoteLoading || (quote !== null && !quote.refundable)}
+                type="button"
+              >
+                {cancelling ? 'Cancelling…' : 'Cancel order'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

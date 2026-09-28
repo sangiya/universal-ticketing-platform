@@ -102,68 +102,69 @@ const DEFAULT_MEALS: MealOption[] = [
   { id: 'chicken-roll', name: 'Chicken Roll', description: 'Spiced chicken wrapped in paratha', price: 250, category: 'NON_VEG', emoji: '🌯', available: true },
 ];
 
-const DEFAULT_POLICIES: CancellationPolicy[] = [
-  {
-    windowStartHours: 72,
-    windowEndHours: Number.POSITIVE_INFINITY,
-    label: 'More than 72 Hours',
-    sub: 'Prior to departure time',
-    charge: '5% Charge',
-    chargeKind: 'percent',
-    chargeValue: 5,
-    refundable: true,
-    bg: '#d1fae5',
-    fg: '#065f46',
-    badge: 'green',
-    badgeBg: '#10b981',
-    badgeFg: '#ffffff',
-  },
-  {
-    windowStartHours: 24,
-    windowEndHours: 72,
-    label: '24 - 72 Hours',
-    sub: 'Prior to departure time',
-    charge: '10% Charge',
-    chargeKind: 'percent',
-    chargeValue: 10,
-    refundable: true,
-    bg: '#fef3c7',
-    fg: '#92400e',
-    badge: 'amber',
-    badgeBg: '#f59e0b',
-    badgeFg: '#ffffff',
-  },
-  {
-    windowStartHours: 0,
-    windowEndHours: 24,
-    label: 'Less than 24 Hours',
-    sub: 'Non-refundable window',
-    charge: 'Not Allowed',
-    chargeKind: 'none',
-    chargeValue: 0,
-    refundable: false,
-    bg: '#fee2e2',
-    fg: '#991b1b',
-    badge: 'red',
-    badgeBg: '#ef4444',
-    badgeFg: '#ffffff',
-  },
-  {
-    windowStartHours: 0,
-    windowEndHours: Number.POSITIVE_INFINITY,
-    label: 'Festival tickets',
-    sub: 'Non-refundable',
-    charge: 'Not Allowed',
-    chargeKind: 'none',
-    chargeValue: 0,
-    refundable: false,
-    bg: '#dbeafe',
-    fg: '#1e40af',
-    badge: 'blue',
-    badgeBg: '#1e3a8a',
-    badgeFg: '#ffffff',
-  },
+/** Raw refund window as returned by the API. */
+export interface RefundPolicyWindowResponse {
+  minHoursBeforeEvent: number;
+  refundPercent: number;
+  feeAmount?: number | null;
+  feePercent?: number | null;
+  label?: string | null;
+}
+
+const POLICY_TONES = [
+  { badge: 'green', bg: '#d1fae5', fg: '#065f46', badgeBg: '#10b981', badgeFg: '#ffffff' },
+  { badge: 'amber', bg: '#fef3c7', fg: '#92400e', badgeBg: '#f59e0b', badgeFg: '#ffffff' },
+  { badge: 'red', bg: '#fee2e2', fg: '#991b1b', badgeBg: '#ef4444', badgeFg: '#ffffff' },
+  { badge: 'blue', bg: '#dbeafe', fg: '#1e40af', badgeBg: '#1e3a8a', badgeFg: '#ffffff' },
 ];
+
+function formatWindow(hours: number): string {
+  if (hours <= 0) return 'Less than 0 hours before';
+  if (hours < 48) return `More than ${hours} hours before`;
+  const days = hours / 24;
+  return Number.isInteger(days)
+    ? `More than ${days} day${days === 1 ? '' : 's'} before`
+    : `More than ${hours} hours before`;
+}
+
+function formatCharge(w: RefundPolicyWindowResponse): string {
+  if (Number(w.refundPercent) === 0) return 'Not Allowed';
+  const pct = 100 - Number(w.refundPercent);
+  if (pct <= 0) return 'Full refund';
+  if (w.feeAmount && Number(w.feeAmount) > 0) return `${pct.toFixed(0)}% / ${w.feeAmount} charge`;
+  return `${pct.toFixed(0)}% Charge`;
+}
+
+/**
+ * Turns the API's refund windows into the display rows the policy modal renders.
+ * Purely presentational — the money is always decided by the backend quote.
+ */
+export function buildPolicyRows(windows: RefundPolicyWindowResponse[]): CancellationPolicy[] {
+  const sorted = [...windows].sort(
+    (a, b) => b.minHoursBeforeEvent - a.minHoursBeforeEvent,
+  );
+  return sorted.map((w, i) => {
+    const pct = 100 - Number(w.refundPercent);
+    const refundable = Number(w.refundPercent) > 0;
+    const tone = refundable
+      ? pct <= 0
+        ? POLICY_TONES[0]
+        : POLICY_TONES[1]
+      : POLICY_TONES[2];
+    const chargeValue = pct <= 0 ? 0 : pct;
+    return {
+      windowStartHours: w.minHoursBeforeEvent,
+      windowEndHours: i === 0 ? Number.POSITIVE_INFINITY : sorted[i - 1].minHoursBeforeEvent,
+      label: w.label ?? formatWindow(w.minHoursBeforeEvent),
+      sub: 'Prior to the event time',
+      charge: formatCharge(w),
+      chargeKind: refundable ? (w.feeAmount ? 'flat' : 'percent') : 'none',
+      chargeValue,
+      refundable,
+      ...tone,
+    };
+  });
+}
 
 const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
 
@@ -232,7 +233,7 @@ export default function SeatSelection({
   meals = DEFAULT_MEALS,
   onContinue,
   onCancel,
-  policies = DEFAULT_POLICIES,
+  policies = [],
 }: SeatSelectionProps) {
   const totalRows = Math.max(1, Math.ceil(totalSeats / (layout === '2-3' || layout === '3-2' ? 5 : 4)));
   const [seats, setSeats] = useState<Seat[]>(() =>
@@ -648,9 +649,8 @@ function PoliciesModal({
             ))}
             <div className="policy-note">
               <span aria-hidden style={{ marginRight: 4 }}>ⓘ</span>
-              All applicable charges, including cancellation, convenience, payment
-              processing, and other service fees, are based on the total fare and
-              are non-refundable. By proceeding, you agree to the{' '}
+              Refund amounts are calculated from the order total at the time you cancel,
+              using the window that applies then. By proceeding, you agree to the{' '}
               <a href="#">terms &amp; conditions</a>.
             </div>
           </div>

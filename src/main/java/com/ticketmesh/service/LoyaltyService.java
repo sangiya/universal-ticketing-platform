@@ -54,4 +54,24 @@ public class LoyaltyService {
                 LoyaltyLedgerEntry.EntryType.REDEMPTION, "Redeemed at checkout", null));
         return account;
     }
+
+    /**
+     * Claw back the points an order awarded when it is cancelled or refunded
+     * (spec section 26). Floors at zero if the balance was already spent.
+     *
+     * @return points actually removed
+     */
+    @Transactional
+    public long reverseForOrder(Long tenantId, Long userId, long points, String orderRef) {
+        if (points <= 0) {
+            return 0;
+        }
+        LoyaltyAccount account = getOrCreate(tenantId, userId);
+        long removed = account.reverse(points);
+        loyaltyRepository.save(account);
+        ledgerRepository.save(new LoyaltyLedgerEntry(tenantId, userId, -removed, account.getPoints(),
+                LoyaltyLedgerEntry.EntryType.REVERSAL,
+                "Clawed back for cancelled order " + orderRef, orderRef));
+        return removed;
+    }
 }

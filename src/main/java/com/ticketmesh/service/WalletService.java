@@ -76,4 +76,22 @@ public class WalletService {
         walletRepository.save(w);
         txRepository.save(new WalletTransaction(w.getId(), amount.negate(), WalletTransaction.Type.DEBIT, "Order "+orderRef, orderRef));
     }
+
+    /**
+     * Return money to the customer's wallet after a cancellation or refund
+     * (spec section 26). Uses the order's own currency rather than the
+     * single-currency default.
+     */
+    @Transactional
+    public void creditRefund(String orderRef, BigDecimal amount, Long tenantId, Long userId, String currencyIso) {
+        if (amount == null || amount.signum() <= 0) {
+            return;
+        }
+        String currency = currencyIso == null || currencyIso.isBlank() ? "LKR" : currencyIso;
+        var w = getOrCreate(tenantId, userId, currency);
+        w.credit(amount);
+        walletRepository.save(w);
+        txRepository.save(new WalletTransaction(w.getId(), amount, WalletTransaction.Type.REFUND,
+                "Refund for order " + orderRef, orderRef));
+    }
 }

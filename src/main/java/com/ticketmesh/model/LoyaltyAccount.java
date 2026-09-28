@@ -96,6 +96,26 @@ public class LoyaltyAccount {
         return true;
     }
 
+    /**
+     * Claw back points awarded by a cancelled or refunded order.
+     *
+     * <p>Only the points the customer can actually give up are taken: if the
+     * balance has already been spent, the account floors at zero instead of
+     * going negative. Lifetime points are never decremented, so an honest
+     * reversal cannot demote a customer's earned tier.
+     *
+     * @return the number of points actually removed
+     */
+    public long reverse(long amount) {
+        if (amount <= 0) {
+            return 0;
+        }
+        long removed = Math.min(amount, this.points);
+        this.points = this.points - removed;
+        this.updatedAt = Instant.now();
+        return removed;
+    }
+
     public Instant getUpdatedAt() {
         return updatedAt;
     }

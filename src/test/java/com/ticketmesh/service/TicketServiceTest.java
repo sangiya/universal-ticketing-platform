@@ -8,6 +8,7 @@ import com.ticketmesh.model.TrainSchedule;
 import com.ticketmesh.model.User;
 import com.ticketmesh.repository.BookingRepository;
 import com.ticketmesh.repository.ProductOrderRepository;
+import com.ticketmesh.repository.RefundPolicyWindowRepository;
 import com.ticketmesh.repository.UserRepository;
 import com.ticketmesh.security.CurrentUser;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,8 @@ class TicketServiceTest {
         CurrentUser currentUser = mock(CurrentUser.class);
 
         ticketService = new TicketService(bookingRepository,
-                mock(ProductOrderRepository.class), userRepository, currentUser,
+                mock(ProductOrderRepository.class), userRepository,
+                mock(RefundPolicyWindowRepository.class), currentUser,
                 "unit-test-qr-secret-key-2026");
 
         User user = new User("alice", "encoded", "Alice", "alice@example.com", User.Role.CUSTOMER);

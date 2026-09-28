@@ -65,6 +65,8 @@ public class LoyaltyLedgerEntry {
         REDEMPTION,
         EXPIRATION,
         ADJUSTMENT,
-        WELCOME_BONUS
+        WELCOME_BONUS,
+        /** Points clawed back when an order is cancelled or refunded. */
+        REVERSAL
     }
 }

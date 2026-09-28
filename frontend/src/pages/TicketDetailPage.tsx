@@ -29,9 +29,12 @@ interface TicketDetail {
   validUntil?: string;
   entriesRemaining?: number;
   cancellationPolicy?: {
-    windows: { hours: number; refundPercent: number; label: string }[];
-    notes: string;
-  };
+    minHoursBeforeEvent: number;
+    refundPercent: number;
+    feeAmount: number | null;
+    feePercent: number | null;
+    label: string | null;
+  }[];
 }
 
 function statusVariant(s: string): string {
@@ -295,7 +298,7 @@ export default function TicketDetailPage() {
             )}
           </div>
 
-          {ticket.cancellationPolicy && (
+          {ticket.cancellationPolicy && ticket.cancellationPolicy.length > 0 && (
             <div className="card">
               <h3 style={{ marginTop: 0 }}>Cancellation policy</h3>
               <table className="policy-table">
@@ -306,23 +309,22 @@ export default function TicketDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ticket.cancellationPolicy.windows.map((w, i) => (
+                  {ticket.cancellationPolicy.map((w, i) => (
                     <tr key={i}>
-                      <td>{w.label}</td>
+                      <td>{w.label ?? `${w.minHoursBeforeEvent}h before`}</td>
                       <td>
-                        {w.refundPercent === 0 ? (
+                        {Number(w.refundPercent) === 0 ? (
                           <span className="badge danger">Not allowed</span>
                         ) : (
-                          <span className="badge success">{w.refundPercent}% refund</span>
+                          <span className="badge success">
+                            {Number(w.refundPercent).toLocaleString()}% refund
+                          </span>
                         )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {ticket.cancellationPolicy.notes && (
-                <p className="muted fs-sm" style={{ marginTop: 8 }}>{ticket.cancellationPolicy.notes}</p>
-              )}
             </div>
           )}
 
